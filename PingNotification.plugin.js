@@ -4,7 +4,7 @@
  * @version 4.0.0
  * @description A BetterDiscord plugin to show in-app notifications for direct mentions, direct messages, and messages in specific guilds with a customizable GUI.
  * @website https://github.com/DaddyBoard/PingNotification
- * @source https://raw.githubusercontent.com/YourGitHubUsername/PingNotification/main/PingNotification.plugin.js
+ * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
  */
 
 // Utility functions (unchanged)
