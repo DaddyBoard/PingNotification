@@ -1,5 +1,5 @@
 # PingNotification
-BetterDiscord plugin to display in-app notifications
+BetterDiscord plugin to display in-app notifications. This is a lightweight alternative to "AppNotifications" and isn't meant to be anything super fantastic. 
 
 
 **Understanding default operation:**
