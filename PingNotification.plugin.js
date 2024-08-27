@@ -25,8 +25,8 @@ module.exports = (() => {
             authors: [
                 {
                     name: "DaddyBoard",
-                    discord_id: "123123",
-                    github_username: "123123",
+                    discord_id: "241334335884492810",
+                    github_username: "DaddyBoard",
                 }
             ],
             version: "4.0.0",
