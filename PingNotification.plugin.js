@@ -29,7 +29,7 @@ module.exports = (() => {
                     github_username: "DaddyBoard",
                 }
             ],
-            version: "4.0.0",
+            version: "4.1.0",
             description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with customizable settings.",
             github: "https://github.com/YourGitHubUsername/PingNotification",
             github_raw: "https://raw.githubusercontent.com/YourGitHubUsername/PingNotification/main/PingNotification.plugin.js"
@@ -38,6 +38,7 @@ module.exports = (() => {
             {
                 title: "Major Update",
                 items: [
+                    "Added GUI settings for changing popup location",
                     "Added GUI settings for server selection",
                     "Implemented channel blocking with user-friendly input",
                     "Improved overall customization options"
@@ -84,8 +85,9 @@ module.exports = (() => {
                     duration: 15000,
                     ignoredUsers: "",
                     allowedGuilds: {},
-                    blockedChannels: []
-                };
+                    blockedChannels: [],
+                    popupLocation: "bottomRight" // New setting
+                    };
                 this.activeNotifications = [];
                 this._boundListener = this.onMessageReceived.bind(this);
             }
@@ -138,7 +140,7 @@ module.exports = (() => {
                     .pingNotification-settings .guild-list,
                     .pingNotification-settings .user-list,
                     .pingNotification-settings .channel-list {
-                        max-height: 200px;
+                        max-height: 150px;
                         overflow-y: auto;
                         margin-bottom: 15px;
                         padding: 10px;
@@ -238,6 +240,17 @@ module.exports = (() => {
                 sliderContainer.appendChild(slider);
                 sliderContainer.appendChild(sliderValue);
                 panel.appendChild(sliderContainer);
+
+
+                panel.appendChild(this.createDropdown("Popup Location", [
+                    { value: "topRight", label: "Top Right" },
+                    { value: "bottomRight", label: "Bottom Right" },
+                    { value: "bottomLeft", label: "Bottom Left" },
+                    { value: "topLeft", label: "Top Left" }
+                ], this.settings.popupLocation, (value) => {
+                    this.settings.popupLocation = value;
+                    this.saveSettings();
+                }));
 
                 // 2. Allowed/Disallowed Servers
                 panel.appendChild(this.createHeader("Allowed Servers"));
@@ -355,6 +368,27 @@ module.exports = (() => {
                 const header = document.createElement("h2");
                 header.textContent = text;
                 return header;
+            }
+
+            createDropdown(labelText, options, currentValue, onChange) {
+                const container = document.createElement("div");
+                const label = document.createElement("label");
+                label.textContent = labelText;
+                const select = document.createElement("select");
+                options.forEach(option => {
+                    const optionElement = document.createElement("option");
+                    optionElement.value = option.value;
+                    optionElement.textContent = option.label;
+                    optionElement.selected = currentValue === option.value;
+                    select.appendChild(optionElement);
+                });
+                select.onchange = () => {
+                    onChange(select.value);
+                    this.saveSettings();
+                };
+                container.appendChild(label);
+                container.appendChild(select);
+                return container;
             }
 
             showAddModal(type, callback) {
@@ -582,6 +616,12 @@ module.exports = (() => {
                         border-radius: 0 0 8px 0;
                         transition: width 0.1s linear, background-color 0.1s linear;
                     }
+
+                    ${this.css}
+                    .ping-notification {
+                        left: auto;
+                        right: auto;
+                    }
                 `;
 
                 subscribeToMessages() {
@@ -641,7 +681,7 @@ module.exports = (() => {
                 showNotification(message, channel) {
                     const notification = document.createElement("div");
                     notification.className = "ping-notification";
-                    notification.style.visibility = "hidden"; // Hide initially to prevent flashing
+                    notification.style.visibility = "hidden";
 
                     const title = this.getNotificationTitle(message, channel);
                     const content = this.truncateContent(this.parseDiscordFormatting(message.content));
@@ -667,6 +707,10 @@ module.exports = (() => {
                     }
 
                     const notificationBody = notification.querySelector(".ping-notification-body");
+                    
+                    // Set initial position based on popupLocation setting
+                    this.setNotificationPosition(notification);
+                    notification.style.visibility = "visible";
 
                     if (message.attachments && message.attachments.length > 0) {
                         const img = document.createElement("img");
@@ -728,14 +772,58 @@ module.exports = (() => {
                     requestAnimationFrame(updateProgress);
                 }
 
+                // Add this new method to set the notification position
+                setNotificationPosition(notification) {
+                    const { popupLocation } = this.settings;
+                    notification.style.top = "auto";
+                    notification.style.bottom = "auto";
+                    notification.style.left = "auto";
+                    notification.style.right = "auto";
+
+                    switch (popupLocation) {
+                        case "topRight":
+                            notification.style.top = "20px";
+                            notification.style.right = "20px";
+                            break;
+                        case "bottomRight":
+                            notification.style.bottom = "20px";
+                            notification.style.right = "20px";
+                            break;
+                        case "bottomLeft":
+                            notification.style.bottom = "20px";
+                            notification.style.left = "20px";
+                            break;
+                        case "topLeft":
+                            notification.style.top = "20px";
+                            notification.style.left = "20px";
+                            break;
+                    }
+                }
+
+                // Update the adjustNotificationPositions method
                 adjustNotificationPositions() {
-                    let bottomOffset = 20;
+                    const { popupLocation } = this.settings;
+                    let offset = 20;
+                    const isTop = popupLocation.startsWith("top");
+                    const isLeft = popupLocation.endsWith("Left");
+
                     this.activeNotifications.slice().reverse().forEach((notification, index) => {
                         const height = notification.offsetHeight;
-                        notification.style.bottom = `${bottomOffset}px`;
-                        notification.style.right = "20px"; // Ensure right positioning
-                        notification.style.top = "auto"; // Remove top positioning
-                        bottomOffset += height + 10;
+                        this.setNotificationPosition(notification);
+
+                        if (isTop) {
+                            notification.style.top = `${offset}px`;
+                        } else {
+                            notification.style.bottom = `${offset}px`;
+                        }
+
+                        if (isLeft) {
+                            notification.style.left = "20px";
+                        } else {
+                            notification.style.right = "20px";
+                        }
+
+                        offset += height + 10;
                     });
                 }
 
