@@ -1,6 +1,8 @@
 # PingNotification
 BetterDiscord plugin to display in-app notifications. This is a lightweight alternative to "AppNotifications" and isn't meant to be anything super fantastic. 
 
+# v4.1.0 Update:
+Added settings to change the popup location (Bottom Right, Top Right, Bottom Left, Top Left) 
 
 # **Understanding default operation:**
 
