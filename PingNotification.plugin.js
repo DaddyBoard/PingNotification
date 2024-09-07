@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 4.1.1
+ * @version 4.2
  * @description A BetterDiscord plugin to show in-app notifications for direct mentions, direct messages, and messages in specific guilds with a customizable GUI.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -10,6 +10,35 @@
 // Utility functions (unchanged)
 function lerp(a, b, t) {
     return a + (b - a) * t;
+}
+
+
+function getHighestRole(guildId, userId) {
+    const guild = GuildStore.getGuild(guildId);
+    if (!guild || !guild.members) return null;
+
+    const member = guild.members[userId];
+    if (!member || !member.roles) return null;
+
+    const guildRoles = GuildStore.getRoles(guildId);
+    return member.roles
+        .map(roleId => guildRoles[roleId])
+        .filter(role => role && role.color !== 0)
+        .sort((a, b) => b.position - a.position)[0];
+}
+
+function getRoleColor(role) {
+    if (!role || !role.color) return '#7289da';
+    try {
+        return ColorConverter.int2hex(role.color);
+    } catch (error) {
+        console.warn('ColorConverter not available, using fallback:', error);
+        return int2hex(role.color);
+    }
+}
+// Add this fallback color conversion function at the top of your file
+function int2hex(int) {
+    return '#' + int.toString(16).padStart(6, '0');
 }
 
 function getColorForPercentage(pct) {
@@ -29,16 +58,16 @@ module.exports = (() => {
                     github_username: "DaddyBoard",
                 }
             ],
-            version: "4.1.1",
+            version: "4.2",
             description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with customizable settings.",
             github: "https://github.com/YourGitHubUsername/PingNotification",
             github_raw: "https://raw.githubusercontent.com/YourGitHubUsername/PingNotification/main/PingNotification.plugin.js"
         },
         changelog: [
             {
-                title: "Small Update",
+                title: "Big Update",
                 items: [
-                    "Improved pop-up animation"
+                    "Now properly shows colors of @mentions, @role mentions, etc"
                 ]
             }
         ],
@@ -72,9 +101,13 @@ module.exports = (() => {
         stop() { }
     } : (([Plugin, Api]) => {
     const plugin = (Plugin, Library) => {
-        const { DiscordModules, WebpackModules, Toasts, PluginUtilities, Patcher, Settings } = Library;
-        const { Dispatcher, NavigationUtils, ChannelStore, UserStore, GuildStore, GuildMemberStore } = DiscordModules;
+        const { DiscordModules, WebpackModules, PluginUtilities, Settings, Patcher } = Library;
+        const { React, ReactDOM, Dispatcher, UserStore, ChannelStore, NavigationUtils, UserStatusStore, SelectedChannelStore, GuildMemberStore } = DiscordModules;
+        const { Webpack } = BdApi;
+        const GuildStore = Webpack.getStore("GuildStore");
+        const ColorConverter = WebpackModules.getByProps('int2hex');
 
+        
         return class PingNotification extends Plugin {
             constructor() {
                 super();
@@ -700,104 +733,110 @@ module.exports = (() => {
                 }
 
                 // Update the showNotification function
-                // Update the showNotification function
                 showNotification(message, channel) {
-                    const notification = document.createElement("div");
-                    notification.className = "ping-notification ping-notification-new";
-                    notification.style.visibility = "hidden";
+                    try {
+                        const notification = document.createElement("div");
+                        notification.className = "ping-notification ping-notification-new";
+                        notification.style.visibility = "hidden";
 
-                    const title = this.getNotificationTitle(message, channel);
-                    const content = this.truncateContent(this.parseDiscordFormatting(message.content));
-                    const avatarUrl = this.getAvatarUrl(message.author);
+                        const title = this.getNotificationTitle(message, channel);
+                        const content = this.truncateContent(this.parseDiscordFormatting(message.content, channel));
+                        const avatarUrl = this.getAvatarUrl(message.author);
 
-                    notification.innerHTML = `
-                        <div class="ping-notification-header">
-                            <div class="ping-notification-avatar">${message.author.username.charAt(0)}</div>
-                            <div class="ping-notification-title">${title}</div>
-                            <span class="ping-notification-close">×</span>
-                        </div>
-                        <div class="ping-notification-body">
-                            <div class="ping-notification-content">${content}</div>
-                        </div>
-                        <div class="ping-notification-progress"></div>
-                    `;
+                        notification.innerHTML = `
+                            <div class="ping-notification-header">
+                                <div class="ping-notification-avatar">${message.author.username.charAt(0)}</div>
+                                <div class="ping-notification-title">${title}</div>
+                                <span class="ping-notification-close">×</span>
+                            </div>
+                            <div class="ping-notification-body">
+                                <div class="ping-notification-content">${content}</div>
+                            </div>
+                            <div class="ping-notification-progress"></div>
+                        `;
 
-                    const avatarElement = notification.querySelector(".ping-notification-avatar");
-                    if (avatarUrl) {
-                        avatarElement.style.backgroundImage = `url(${avatarUrl})`;
-                        avatarElement.style.backgroundSize = 'cover';
-                        avatarElement.textContent = '';
-                    }
-
-                    const notificationBody = notification.querySelector(".ping-notification-body");
-
-                    // Set initial position based on popupLocation setting
-                    this.setNotificationPosition(notification);
-                    notification.style.visibility = "visible";
-
-                    if (message.attachments && message.attachments.length > 0) {
-                        const img = document.createElement("img");
-                        img.src = message.attachments[0].url;
-                        img.className = "ping-notification-image";
-                        notificationBody.appendChild(img);
-                    }
-
-                    notification.querySelector(".ping-notification-close").onclick = (e) => {
-                        e.stopPropagation();
-                        this.removeNotification(notification);
-                    };
-
-                    notification.onclick = () => {
-                        NavigationUtils.transitionTo(`/channels/${channel.guild_id || "@me"}/${channel.id}/${message.id}`);
-                        this.removeNotification(notification);
-                    };
-
-                    document.body.appendChild(notification);
-                    this.activeNotifications.push(notification);
-
-                    // Set initial position before making visible
-                    this.adjustNotificationPositions();
-                    notification.style.visibility = "visible";
-
-                    // Remove the 'new' class after the animation completes
-                    setTimeout(() => {
-                        notification.classList.remove("ping-notification-new");
-                    }, 2500);
-
-                    const progress = notification.querySelector(".ping-notification-progress");
-                    let startTime = Date.now();
-                    let pausedTime = 0;
-                    let isPaused = false;
-
-                    const updateProgress = () => {
-                        if (!document.body.contains(notification)) return;
-
-                        const currentTime = Date.now();
-                        const elapsedTime = isPaused ? pausedTime : (currentTime - startTime);
-                        const percentage = Math.min(elapsedTime / this.settings.duration, 1);
-                        const width = 100 - (percentage * 100);
-
-                        progress.style.width = `${width}%`;
-                        progress.style.backgroundColor = getColorForPercentage(1 - percentage);
-
-                        if (percentage < 1 && document.body.contains(notification)) {
-                            requestAnimationFrame(updateProgress);
-                        } else if (percentage >= 1) {
-                            this.removeNotification(notification);
+                        const avatarElement = notification.querySelector(".ping-notification-avatar");
+                        if (avatarUrl) {
+                            avatarElement.style.backgroundImage = `url(${avatarUrl})`;
+                            avatarElement.style.backgroundSize = 'cover';
+                            avatarElement.textContent = '';
                         }
-                    };
 
-                    notification.addEventListener('mouseenter', () => {
-                        isPaused = true;
-                        pausedTime = Date.now() - startTime;
-                    });
+                        const notificationBody = notification.querySelector(".ping-notification-body");
 
-                    notification.addEventListener('mouseleave', () => {
-                        isPaused = false;
-                        startTime = Date.now() - pausedTime;
-                    });
+                        // Set initial position based on popupLocation setting
+                        this.setNotificationPosition(notification);
+                        notification.style.visibility = "visible";
 
-                    requestAnimationFrame(updateProgress);
+                        if (message.attachments && message.attachments.length > 0) {
+                            const img = document.createElement("img");
+                            img.src = message.attachments[0].url;
+                            img.className = "ping-notification-image";
+                            notificationBody.appendChild(img);
+                        }
+
+                        notification.querySelector(".ping-notification-close").onclick = (e) => {
+                            e.stopPropagation();
+                            this.removeNotification(notification);
+                        };
+
+                        notification.onclick = () => {
+                            NavigationUtils.transitionTo(`/channels/${channel.guild_id || "@me"}/${channel.id}/${message.id}`);
+                            this.removeNotification(notification);
+                        };
+
+                        document.body.appendChild(notification);
+                        this.activeNotifications.push(notification);
+
+                        // Set initial position before making visible
+                        this.adjustNotificationPositions();
+                        notification.style.visibility = "visible";
+
+                        // Remove the 'new' class after the animation completes
+                        setTimeout(() => {
+                            notification.classList.remove("ping-notification-new");
+                        }, 2500);
+
+                        const progress = notification.querySelector(".ping-notification-progress");
+                        let startTime = Date.now();
+                        let pausedTime = 0;
+                        let isPaused = false;
+
+                        const updateProgress = () => {
+                            if (!document.body.contains(notification)) return;
+
+                            const currentTime = Date.now();
+                            const elapsedTime = isPaused ? pausedTime : (currentTime - startTime);
+                            const percentage = Math.min(elapsedTime / this.settings.duration, 1);
+                            const width = 100 - (percentage * 100);
+
+                            progress.style.width = `${width}%`;
+                            progress.style.backgroundColor = getColorForPercentage(1 - percentage);
+
+                            if (percentage < 1 && document.body.contains(notification)) {
+                                requestAnimationFrame(updateProgress);
+                            } else if (percentage >= 1) {
+                                this.removeNotification(notification);
+                            }
+                        };
+
+                        notification.addEventListener('mouseenter', () => {
+                            isPaused = true;
+                            pausedTime = Date.now() - startTime;
+                        });
+
+                        notification.addEventListener('mouseleave', () => {
+                            isPaused = false;
+                            startTime = Date.now() - pausedTime;
+                        });
+
+                        requestAnimationFrame(updateProgress);
+
+                    } catch (error) {
+                        console.error('Error showing notification:', error);
+                        // Optionally, you can show a toast notification to the user
+                        Toasts.error('Error showing notification. Check console for details.');
+                    }
                 }
 
                 // Add this new method to set the notification position
@@ -886,16 +925,56 @@ module.exports = (() => {
                     return title;
                 }
 
-                parseDiscordFormatting(content) {
+                
+
+                // In your parseDiscordFormatting function:
+                parseDiscordFormatting(content, channel) {
                     content = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
                     content = content.replace(/\*(.+?)\*/g, '<em>$1</em>');
                     content = content.replace(/`(.+?)`/g, '<code>$1</code>');
+
+                    // Parse user mentions
                     content = content.replace(/<@!?(\d+)>/g, (match, userId) => {
-                        const user = UserStore.getUser(userId);
-                        return `<span style="color: #7289da;">@${user ? user.username : 'Unknown User'}</span>`;
+                        try {
+                            const user = UserStore.getUser(userId);
+                            if (user && channel.guild_id) {
+                                const colorString = GuildMemberStore.getMember(channel.guild_id, userId)?.colorString;
+                                if (colorString) {
+                                    return `<span style="color: ${colorString};">@${user.username}</span>`;
+                                }
+                            }
+                            return `<span style="color: #7289da;">@${user ? user.username : 'Unknown User'}</span>`;
+                        } catch (error) {
+                            console.error('Error parsing user mention:', error);
+                            return `<span style="color: #7289da;">@Unknown User</span>`;
+                        }
                     });
-                    content = content.replace(/<@&(\d+)>/g, `<span style="color: #7289da;">@Role</span>`);
-                    content = content.replace(/@everyone/g, `<span style="color: #7289da;">@everyone</span>`);
+
+                    // Parse role mentions
+                    content = content.replace(/<@&(\d+)>/g, (match, roleId) => {
+                        try {
+                            if (channel && channel.guild_id) {
+                                const guild = GuildStore.getGuild(channel.guild_id);
+                                if (guild && guild.roles) {
+                                    const role = guild.roles[roleId];
+                                    if (role) {
+                                        const roleColor = role.color ? ColorConverter.int2hex(role.color) : '#7289da';
+                                        return `<span style="color: ${roleColor};">@${role.name}</span>`;
+                                    }
+                                }
+                            }
+                            return `<span style="color: #7289da;">@Role</span>`;
+                        } catch (error) {
+                            console.error('Error parsing role mention:', error);
+                            return `<span style="color: #7289da;">@Role</span>`;
+                        }
+                    });
+
+                    // Parse @everyone and @here mentions
+                    content = content.replace(/@(everyone|here)/g, (match, mention) => {
+                        return `<span style="color: #7289da;">@${mention}</span>`;
+                    });
+
                     return content;
                 }
 
