@@ -938,9 +938,9 @@ module.exports = (() => {
                         try {
                             const user = UserStore.getUser(userId);
                             if (user && channel.guild_id) {
-                                const colorString = GuildMemberStore.getMember(channel.guild_id, userId)?.colorString;
-                                if (colorString) {
-                                    return `<span style="color: ${colorString};">@${user.username}</span>`;
+                                const member = GuildMemberStore.getMember(channel.guild_id, userId);
+                                if (member && member.colorString) {
+                                    return `<span style="color: ${member.colorString};">@${user.username}</span>`;
                                 }
                             }
                             return `<span style="color: #7289da;">@${user ? user.username : 'Unknown User'}</span>`;
@@ -954,11 +954,21 @@ module.exports = (() => {
                     content = content.replace(/<@&(\d+)>/g, (match, roleId) => {
                         try {
                             if (channel && channel.guild_id) {
-                                const guild = GuildStore.getGuild(channel.guild_id);
-                                if (guild && guild.roles) {
-                                    const role = guild.roles[roleId];
+                                const roles = GuildStore.getRoles(channel.guild_id);
+                                if (roles) {
+                                    const role = roles[roleId];
                                     if (role) {
-                                        const roleColor = role.color ? ColorConverter.int2hex(role.color) : '#7289da';
+                                        let roleColor;
+                                        if (role.color) {
+                                            try {
+                                                roleColor = ColorConverter.int2hex(role.color);
+                                            } catch (error) {
+                                                console.warn('ColorConverter not available, using fallback:', error);
+                                                roleColor = int2hex(role.color);
+                                            }
+                                        } else {
+                                            roleColor = '#7289da';
+                                        }
                                         return `<span style="color: ${roleColor};">@${role.name}</span>`;
                                     }
                                 }
@@ -976,6 +986,19 @@ module.exports = (() => {
                     });
 
                     return content;
+                }
+
+                // Keep the getNotificationTitle function as it was before
+                getNotificationTitle(message, channel) {
+                    let title = message.author.username;
+                    if (channel.guild_id) {
+                        const guild = GuildStore.getGuild(channel.guild_id);
+                        title += ` • ${guild.name} • #${channel.name}`;
+                    }
+                    if (!channel.guild_id) {
+                        title += ` • DM`;
+                    }
+                    return title;
                 }
 
 
