@@ -7,7 +7,7 @@
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
  */
 
-// Utility functions (unchanged)
+
 function lerp(a, b, t) {
     return a + (b - a) * t;
 }
@@ -36,7 +36,7 @@ function getRoleColor(role) {
         return int2hex(role.color);
     }
 }
-// Add this fallback color conversion function at the top of your file
+
 function int2hex(int) {
     return '#' + int.toString(16).padStart(6, '0');
 }
@@ -116,7 +116,7 @@ module.exports = (() => {
                     ignoredUsers: "",
                     allowedGuilds: {},
                     blockedChannels: [],
-                    popupLocation: "bottomRight" // New setting
+                    popupLocation: "bottomRight"
                     };
                 this.activeNotifications = [];
                 this._boundListener = this.onMessageReceived.bind(this);
@@ -140,7 +140,7 @@ module.exports = (() => {
                 const panel = document.createElement("div");
                 panel.className = "pingNotification-settings";
 
-                // Add CSS
+                
                 const style = document.createElement('style');
                 style.textContent = `
                     .pingNotification-settings {
@@ -732,7 +732,7 @@ module.exports = (() => {
                     return this.settings.allowedGuilds[channel.guild_id] || false;
                 }
 
-                // Update the showNotification function
+                
                 showNotification(message, channel) {
                     try {
                         const notification = document.createElement("div");
@@ -834,12 +834,12 @@ module.exports = (() => {
 
                     } catch (error) {
                         console.error('Error showing notification:', error);
-                        // Optionally, you can show a toast notification to the user
+                        
                         Toasts.error('Error showing notification. Check console for details.');
                     }
                 }
 
-                // Add this new method to set the notification position
+                
                 setNotificationPosition(notification) {
                     const { popupLocation } = this.settings;
                     notification.style.top = "auto";
@@ -867,7 +867,7 @@ module.exports = (() => {
                     }
                 }
 
-                // Update the adjustNotificationPositions method
+                
                 adjustNotificationPositions() {
                     const { popupLocation } = this.settings;
                     let offset = 20;
@@ -895,8 +895,6 @@ module.exports = (() => {
                 }
 
 
-
-                // Add this new function to truncate the content
                 truncateContent(content) {
                     if (content.length > 150) {
                         return content.substring(0, 150) + '...';
@@ -904,7 +902,6 @@ module.exports = (() => {
                     return content;
                 }
 
-                // Add this new function to get the avatar URL
                 getAvatarUrl(user) {
                     if (user.avatar) {
                         return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`;
@@ -912,7 +909,6 @@ module.exports = (() => {
                     return null;
                 }
 
-                // Update the getNotificationTitle function
                 getNotificationTitle(message, channel) {
                     let title = message.author.username;
                     if (channel.guild_id) {
@@ -926,14 +922,10 @@ module.exports = (() => {
                 }
 
                 
-
-                // In your parseDiscordFormatting function:
                 parseDiscordFormatting(content, channel) {
                     content = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
                     content = content.replace(/\*(.+?)\*/g, '<em>$1</em>');
                     content = content.replace(/`(.+?)`/g, '<code>$1</code>');
-
-                    // Parse user mentions
                     content = content.replace(/<@!?(\d+)>/g, (match, userId) => {
                         try {
                             const user = UserStore.getUser(userId);
@@ -950,7 +942,6 @@ module.exports = (() => {
                         }
                     });
 
-                    // Parse role mentions
                     content = content.replace(/<@&(\d+)>/g, (match, roleId) => {
                         try {
                             if (channel && channel.guild_id) {
@@ -980,7 +971,6 @@ module.exports = (() => {
                         }
                     });
 
-                    // Parse @everyone and @here mentions
                     content = content.replace(/@(everyone|here)/g, (match, mention) => {
                         return `<span style="color: #7289da;">@${mention}</span>`;
                     });
@@ -988,7 +978,6 @@ module.exports = (() => {
                     return content;
                 }
 
-                // Keep the getNotificationTitle function as it was before
                 getNotificationTitle(message, channel) {
                     let title = message.author.username;
                     if (channel.guild_id) {
