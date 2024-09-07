@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 4.0.0
+ * @version 4.1.1
  * @description A BetterDiscord plugin to show in-app notifications for direct mentions, direct messages, and messages in specific guilds with a customizable GUI.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -29,19 +29,16 @@ module.exports = (() => {
                     github_username: "DaddyBoard",
                 }
             ],
-            version: "4.1.0",
+            version: "4.1.1",
             description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with customizable settings.",
             github: "https://github.com/YourGitHubUsername/PingNotification",
             github_raw: "https://raw.githubusercontent.com/YourGitHubUsername/PingNotification/main/PingNotification.plugin.js"
         },
         changelog: [
             {
-                title: "Major Update",
+                title: "Small Update",
                 items: [
-                    "Added GUI settings for changing popup location",
-                    "Added GUI settings for server selection",
-                    "Implemented channel blocking with user-friendly input",
-                    "Improved overall customization options"
+                    "Improved pop-up animation"
                 ]
             }
         ],
@@ -469,7 +466,7 @@ module.exports = (() => {
                 this.saveSettings();
             }
 
-                css = `
+            css = `
                     .ping-notification {
                         position: fixed;
                         right: 20px;
@@ -487,6 +484,7 @@ module.exports = (() => {
                         display: flex;
                         flex-direction: column;
                         backdrop-filter: blur(10px);
+                        animation: notificationPop 0.5s ease-out;
                     }
                     .ping-notification:hover {
                         background-color: rgba(54, 57, 63, 1);
@@ -556,20 +554,20 @@ module.exports = (() => {
                     }
                     .ping-notification-image {
                         max-width: 100%;
-                        max-height: 150px; /* Adjust this value as needed */
+                        max-height: 150px;
                         object-fit: cover;
                         border-radius: 4px;
                         margin-top: 8px;
                     }
                     .ping-notification {
                         box-sizing: border-box;
-                        max-height: 300px; /* Adjust this value as needed */
+                        max-height: 300px;
                         overflow: hidden;
                     }
                     .ping-notification-body {
                         display: flex;
                         flex-direction: column;
-                        max-height: 220px; /* Adjust this value as needed */
+                        max-height: 220px;
                         overflow-y: auto;
                     }
                     .ping-notification-content {
@@ -580,7 +578,7 @@ module.exports = (() => {
                     }
                     .ping-notification-image {
                         max-width: 100%;
-                        max-height: 150px; /* Adjust this value as needed */
+                        max-height: 150px;
                         object-fit: cover;
                         border-radius: 4px;
                     }
@@ -616,11 +614,36 @@ module.exports = (() => {
                         border-radius: 0 0 8px 0;
                         transition: width 0.1s linear, background-color 0.1s linear;
                     }
-
-                    ${this.css}
                     .ping-notification {
                         left: auto;
                         right: auto;
+                    }
+                    @keyframes notificationPop {
+                        0% {
+                            transform: scale(0.5);
+                            opacity: 0;
+                        }
+                        50% {
+                            transform: scale(1.1);
+                        }
+                        75% {
+                            transform: scale(0.95);
+                        }
+                        100% {
+                            transform: scale(1);
+                            opacity: 1;
+                        }
+                    }
+                    .ping-notification-new {
+                        animation: notificationPop 0.5s ease-out, notificationGlow 2s ease-in-out;
+                    }
+                    @keyframes notificationGlow {
+                        0%, 100% {
+                            box-shadow: 0 4px 20px rgba(88, 101, 242, 0.3);
+                        }
+                        50% {
+                            box-shadow: 0 4px 20px rgba(88, 101, 242, 0.8);
+                        }
                     }
                 `;
 
@@ -680,7 +703,7 @@ module.exports = (() => {
                 // Update the showNotification function
                 showNotification(message, channel) {
                     const notification = document.createElement("div");
-                    notification.className = "ping-notification";
+                    notification.className = "ping-notification ping-notification-new";
                     notification.style.visibility = "hidden";
 
                     const title = this.getNotificationTitle(message, channel);
@@ -707,7 +730,7 @@ module.exports = (() => {
                     }
 
                     const notificationBody = notification.querySelector(".ping-notification-body");
-                    
+
                     // Set initial position based on popupLocation setting
                     this.setNotificationPosition(notification);
                     notification.style.visibility = "visible";
@@ -735,6 +758,11 @@ module.exports = (() => {
                     // Set initial position before making visible
                     this.adjustNotificationPositions();
                     notification.style.visibility = "visible";
+
+                    // Remove the 'new' class after the animation completes
+                    setTimeout(() => {
+                        notification.classList.remove("ping-notification-new");
+                    }, 2500);
 
                     const progress = notification.querySelector(".ping-notification-progress");
                     let startTime = Date.now();
