@@ -9,9 +9,8 @@ Upon going into BetterDiscord > Plugins > PingNotification settings > you will s
 # v4.2 Update:
 Now properly shows colors of @mentions, @role mentions, etc
 
-# v4.1.1 Update:
-Improved pop-up animation
+# Known issues:
+* Custom emoji's are rendered in plaintext
+* Emojis posted by a discordpy bot in the format of ":emoji:" also render in plaintext (not the same outcome if posted by a user (?))
 
-# v4.1.0 Update:
-Added settings to change the popup location (Bottom Right, Top Right, Bottom Left, Top Left) 
 
