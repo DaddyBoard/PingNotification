@@ -6,11 +6,8 @@ BetterDiscord plugin to display in-app notifications. This is a lightweight alte
 Out of the box, PingNotification will only work for mentions, DM's and In-line Replies (same as mention).
 Upon going into BetterDiscord > Plugins > PingNotification settings > you will see options here to allow what servers should notify **all** messages, regardless of mentions and 'mute' status of the server. You can also block individual User ID's aswell as blocking specific channels. 
 
-# v4.2 Update:
-Now properly shows colors of @mentions, @role mentions, etc
+# v5.0 MEGA Update
+* Completely rewritten using React for better performance and maintainability
+* Fixed issues with custom emoji and bot message rendering
 
-# Known issues:
-* Custom emoji's are rendered in plaintext
-* Emojis posted by a discordpy bot in the format of ":emoji:" also render in plaintext (not the same outcome if posted by a user (?))
-
-
+As of right now, there are no known issues.
