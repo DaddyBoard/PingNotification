@@ -71,7 +71,7 @@ module.exports = (() => {
                         ignoredUsers: "",
                         allowedGuilds: {},
                         blockedChannels: [],
-                        popupLocation: "topLeft"
+                        popupLocation: "bottomRight"
                     };
                     this.activeNotifications = [];
                 }
