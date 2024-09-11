@@ -60,18 +60,20 @@ module.exports = (() => {
             const { Patcher, WebpackModules, ReactTools, DiscordModules, Settings } = Library;
             const { React, ReactDOM } = BdApi;
             const { Dispatcher, UserStore, ChannelStore, GuildStore, NavigationUtils } = DiscordModules;
-
+            const { ModalRoot, ModalHeader, ModalCloseButton, ModalContent, ModalFooter, Button } = WebpackModules.getByProps("ModalRoot");
+            const GuildChannelsStore = WebpackModules.getByProps("getChannels", "getDefaultChannel");
             const parse = WebpackModules.getByProps("defaultRules", "parse").parse;
-
+            const { debounce } = WebpackModules.getByProps('debounce');
             class PingNotification extends Plugin {
                 constructor() {
                     super();
                     this.defaultSettings = {
                         duration: 15000,
-                        ignoredUsers: "",
+                        ignoredUsers: [],
+                        ignoredChannels: [],
                         allowedGuilds: {},
-                        blockedChannels: [],
-                        popupLocation: "bottomRight"
+                        popupLocation: "bottomRight",
+                        isBlacklistMode: true
                     };
                     this.activeNotifications = [];
                 }
@@ -91,7 +93,13 @@ module.exports = (() => {
                 }
 
                 loadSettings() {
-                    this.settings = BdApi.getData("PingNotification", "settings") || {...this.defaultSettings};
+                    const savedSettings = BdApi.getData("PingNotification", "settings");
+                    this.settings = {
+                        ...this.defaultSettings,
+                        ...savedSettings,
+                        ignoredUsers: Array.isArray(savedSettings?.ignoredUsers) ? savedSettings.ignoredUsers : [],
+                        ignoredChannels: Array.isArray(savedSettings?.ignoredChannels) ? savedSettings.ignoredChannels : []
+                    };
                     console.log("Settings loaded:", this.settings); // Debug log
                 }
 
@@ -124,13 +132,18 @@ module.exports = (() => {
 
                 shouldNotify(message, channel) {
                     const currentUser = UserStore.getCurrentUser();
-                    const ignoredUsers = this.settings.ignoredUsers.split(',').map(id => id.trim());
 
-                    if (ignoredUsers.includes(message.author.id)) return false;
-                    if (this.settings.blockedChannels.includes(channel.id)) return false;
+                    // Check if the message is a mention or everyone ping
+                    const isMention = message.mentions.some(mention => mention.id === currentUser.id) || message.mention_everyone;
 
-                    if (message.mentions.some(mention => mention.id === currentUser.id)) return true;
-                    if (message.mention_everyone) return true;
+                    // Check if the author is in the ignored/allowed users list
+                    const isUserListed = this.settings.ignoredUsers.includes(message.author.id);
+
+                    // Check if the channel is in the ignored/allowed channels list
+                    const isChannelListed = this.settings.ignoredChannels.includes(channel.id);
+
+                    // Check if the guild is in the allowed guilds list
+                    const isGuildAllowed = this.settings.allowedGuilds[channel.guild_id] || false;
 
                     if (message.mention_roles.length > 0) {
                         const guildMember = WebpackModules.getByProps("getMember").getMember(channel.guild_id, currentUser.id);
@@ -140,9 +153,15 @@ module.exports = (() => {
                         }
                     }
 
-                    if (!channel.guild_id) return true;
+                    if (!channel.guild_id) return true; // Always notify for DMs
 
-                    return this.settings.allowedGuilds[channel.guild_id] || false;
+                    if (this.settings.isBlacklistMode) {
+                        // In blacklist mode, notify if not listed and guild is allowed (unless it's a mention)
+                        return isMention || (!isUserListed && !isChannelListed && isGuildAllowed);
+                    } else {
+                        // In whitelist mode, only notify if listed or guild is allowed (or if it's a mention)
+                        return isMention || isUserListed || isChannelListed || isGuildAllowed;
+                    }
                 }
 
                 showNotification(message, channel) {
@@ -234,7 +253,7 @@ module.exports = (() => {
                         onSettingsChange: (newSettings) => {
                             this.settings = newSettings;
                             this.saveSettings();
-                            this.adjustNotificationPositions(); // Add this line to update positions when settings change
+                            this.adjustNotificationPositions();
                         }
                     });
                 }
@@ -464,8 +483,49 @@ module.exports = (() => {
                     onSettingsChange(newSettings);
                 };
 
+                const openUserModal = () => {
+                    BdApi.showConfirmationModal(`Edit ${localSettings.isBlacklistMode ? "Ignored" : "Allowed"} Users`, 
+                        React.createElement(UserSelectionModal, {
+                            currentUsers: localSettings.ignoredUsers,
+                            onSave: (newUsers) => handleChange('ignoredUsers', newUsers),
+                            isBlacklistMode: localSettings.isBlacklistMode
+                        }),
+                        {
+                            confirmText: "Save",
+                            cancelText: "Cancel",
+                            onConfirm: () => {}
+                        }
+                    );
+                };
+
+                const openChannelModal = () => {
+                    BdApi.showConfirmationModal(`Edit ${localSettings.isBlacklistMode ? "Ignored" : "Allowed"} Channels`, 
+                        React.createElement(ChannelSelectionModal, {
+                            currentChannels: localSettings.ignoredChannels,
+                            onSave: (newChannels) => handleChange('ignoredChannels', newChannels),
+                            isBlacklistMode: localSettings.isBlacklistMode
+                        }),
+                        {
+                            confirmText: "Save",
+                            cancelText: "Cancel",
+                            onConfirm: () => {}
+                        }
+                    );
+                };
+
                 return React.createElement('div', { style: { color: 'var(--header-primary)', padding: '16px' } },
                     React.createElement('h2', { style: { marginBottom: '16px' } }, "PingNotification Settings"),
+                    React.createElement('div', { style: { marginBottom: '16px' } },
+                        React.createElement('label', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                            React.createElement('input', {
+                                type: "checkbox",
+                                checked: localSettings.isBlacklistMode,
+                                onChange: (e) => handleChange('isBlacklistMode', e.target.checked),
+                                style: { marginRight: '8px' }
+                            }),
+                            localSettings.isBlacklistMode ? "Blacklist Mode" : "Whitelist Mode"
+                        )
+                    ),
                     React.createElement('div', { style: { marginBottom: '16px' } },
                         React.createElement('label', { style: { display: 'block', marginBottom: '8px' } }, `Notification Duration: ${localSettings.duration / 1000} seconds`),
                         React.createElement('input', { 
@@ -479,13 +539,22 @@ module.exports = (() => {
                         })
                     ),
                     React.createElement('div', { style: { marginBottom: '16px' } },
-                        React.createElement('label', { style: { display: 'block', marginBottom: '8px' } }, "Ignored Users (comma-separated IDs):"),
-                        React.createElement('input', { 
-                            type: "text", 
-                            value: localSettings.ignoredUsers, 
-                            onChange: (e) => handleChange('ignoredUsers', e.target.value),
-                            style: { width: '100%', padding: '8px' }
-                        })
+                        React.createElement('label', { style: { display: 'block', marginBottom: '8px' } }, 
+                            `${localSettings.isBlacklistMode ? "Ignored" : "Allowed"} Users:`
+                        ),
+                        React.createElement('button', { 
+                            onClick: openUserModal,
+                            style: { padding: '8px', marginTop: '4px' }
+                        }, "Edit")
+                    ),
+                    React.createElement('div', { style: { marginBottom: '16px' } },
+                        React.createElement('label', { style: { display: 'block', marginBottom: '8px' } }, 
+                            `${localSettings.isBlacklistMode ? "Ignored" : "Allowed"} Channels:`
+                        ),
+                        React.createElement('button', { 
+                            onClick: openChannelModal,
+                            style: { padding: '8px', marginTop: '4px' }
+                        }, "Edit")
                     ),
                     React.createElement('div', { style: { marginBottom: '16px' } },
                         React.createElement('label', { style: { display: 'block', marginBottom: '8px' } }, "Popup Location:"),
@@ -500,8 +569,11 @@ module.exports = (() => {
                             React.createElement('option', { value: "bottomRight" }, "Bottom Right")
                         )
                     ),
+                    // Add the Allowed Guilds section here
                     React.createElement('div', null,
-                        React.createElement('h3', { style: { marginBottom: '8px' } }, "Allowed Guilds:"),
+                        React.createElement('h3', { style: { marginBottom: '8px' } }, 
+                            `${localSettings.isBlacklistMode ? "Allowed" : "Ignored"} Guilds:`
+                        ),
                         Object.entries(GuildStore.getGuilds()).map(([id, guild]) => 
                             React.createElement('div', { key: id, style: { marginBottom: '8px' } },
                                 React.createElement('label', null,
@@ -516,6 +588,242 @@ module.exports = (() => {
                             )
                         )
                     )
+                );
+            }
+
+            function UserSelectionModal({ currentUsers, onSave, isBlacklistMode }) {
+                const [selectedUsers, setSelectedUsers] = React.useState(new Set(currentUsers));
+                const [searchTerm, setSearchTerm] = React.useState("");
+                const [filteredFriends, setFilteredFriends] = React.useState([]);
+
+                const friends = React.useMemo(() => {
+                    return WebpackModules.getByProps("getFriendIDs").getFriendIDs()
+                        .map(id => WebpackModules.getByProps("getUser").getUser(id))
+                        .filter(user => user != null);
+                }, []);
+
+                const debouncedSearch = React.useMemo(
+                    () => debounce((term) => {
+                        const filtered = friends.filter(friend => 
+                            friend.username.toLowerCase().includes(term.toLowerCase())
+                        );
+                        setFilteredFriends(filtered);
+                    }, 300),
+                    [friends]
+                );
+
+                React.useEffect(() => {
+                    debouncedSearch(searchTerm);
+                }, [searchTerm, debouncedSearch]);
+
+                const toggleUser = (userId) => {
+                    setSelectedUsers(prevSelected => {
+                        const newSelected = new Set(prevSelected);
+                        if (newSelected.has(userId)) {
+                            newSelected.delete(userId);
+                        } else {
+                            newSelected.add(userId);
+                        }
+                        onSave(Array.from(newSelected));
+                        return newSelected;
+                    });
+                };
+
+                const VirtualizedUserList = ({ users }) => {
+                    const listRef = React.useRef();
+                    const rowHeight = 40;
+                    const windowHeight = 300;
+                    const [scrollTop, setScrollTop] = React.useState(0);
+
+                    const onScroll = React.useCallback(
+                        (e) => setScrollTop(e.currentTarget.scrollTop),
+                        []
+                    );
+
+                    const startIndex = Math.floor(scrollTop / rowHeight);
+                    const endIndex = Math.min(users.length - 1, Math.floor((scrollTop + windowHeight) / rowHeight));
+
+                    const items = [];
+                    for (let i = startIndex; i <= endIndex; i++) {
+                        const user = users[i];
+                        items.push(
+                            React.createElement('div', {
+                                key: user.id,
+                                style: {
+                                    height: rowHeight,
+                                    padding: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    color: 'var(--text-normal)'
+                                }
+                            },
+                                React.createElement('input', {
+                                    type: "checkbox",
+                                    checked: selectedUsers.has(user.id),
+                                    onChange: () => toggleUser(user.id),
+                                    style: { marginRight: '8px' }
+                                }),
+                                user.username
+                            )
+                        );
+                    }
+
+                    return React.createElement('div', {
+                        ref: listRef,
+                        onScroll: onScroll,
+                        style: {
+                            height: windowHeight,
+                            overflowY: 'auto',
+                            backgroundColor: 'var(--background-secondary)',
+                            borderRadius: '4px'
+                        }
+                    },
+                        React.createElement('div', {
+                            style: { height: users.length * rowHeight, position: 'relative' }
+                        },
+                            React.createElement('div', {
+                                style: {
+                                    position: 'absolute',
+                                    top: startIndex * rowHeight,
+                                    width: '100%'
+                                }
+                            }, items)
+                        )
+                    );
+                };
+
+                return React.createElement(React.Fragment, null,
+                    React.createElement('h3', { 
+                        style: { 
+                            marginBottom: '16px', 
+                            color: 'var(--header-primary)',
+                            textAlign: 'center'
+                        } 
+                    }, `${isBlacklistMode ? "Ignored" : "Allowed"} Users`),
+                    React.createElement('input', {
+                        type: "text",
+                        placeholder: "Search users...",
+                        value: searchTerm,
+                        onChange: (e) => setSearchTerm(e.target.value),
+                        style: { 
+                            width: '100%', 
+                            padding: '8px', 
+                            marginBottom: '16px',
+                            color: 'var(--text-normal)',
+                            backgroundColor: 'var(--background-secondary)',
+                            border: 'none',
+                            borderRadius: '4px'
+                        }
+                    }),
+                    React.createElement(VirtualizedUserList, { users: filteredFriends })
+                );
+            }
+
+            function ChannelSelectionModal({ currentChannels, onSave, isBlacklistMode }) {
+                const [selectedChannels, setSelectedChannels] = React.useState(new Set(currentChannels));
+                const [selectedGuild, setSelectedGuild] = React.useState(null);
+                const [searchTerm, setSearchTerm] = React.useState("");
+
+                const guilds = Object.values(GuildStore.getGuilds());
+                const GuildChannelsStore = WebpackModules.getByProps("getChannels", "getDefaultChannel");
+
+                const filteredGuilds = guilds.filter(guild => 
+                    guild.name.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+
+                const toggleChannel = (channelId) => {
+                    const newSelectedChannels = new Set(selectedChannels);
+                    if (newSelectedChannels.has(channelId)) {
+                        newSelectedChannels.delete(channelId);
+                    } else {
+                        newSelectedChannels.add(channelId);
+                    }
+                    setSelectedChannels(newSelectedChannels);
+                    onSave(Array.from(newSelectedChannels));
+                };
+
+                const renderGuildList = () => {
+                    return React.createElement(React.Fragment, null,
+                        React.createElement('input', {
+                            type: "text",
+                            placeholder: "Search guilds...",
+                            value: searchTerm,
+                            onChange: (e) => setSearchTerm(e.target.value),
+                            style: { 
+                                width: '100%', 
+                                padding: '8px', 
+                                marginBottom: '16px',
+                                color: 'var(--text-normal)',
+                                backgroundColor: 'var(--background-secondary)',
+                                border: 'none',
+                                borderRadius: '4px'
+                            }
+                        }),
+                        React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' } },
+                            filteredGuilds.map(guild => 
+                                React.createElement('div', { 
+                                    key: guild.id, 
+                                    onClick: () => setSelectedGuild(guild),
+                                    style: { 
+                                        cursor: 'pointer', 
+                                        padding: '8px', 
+                                        marginBottom: '8px', 
+                                        backgroundColor: 'var(--background-secondary)',
+                                        color: 'var(--text-normal)',
+                                        borderRadius: '4px'
+                                    }
+                                },
+                                    guild.name
+                                )
+                            )
+                        )
+                    );
+                };
+
+                const renderChannelList = () => {
+                    const guildChannels = GuildChannelsStore.getChannels(selectedGuild.id);
+                    const textChannels = guildChannels.SELECTABLE.map(channel => channel.channel).filter(channel => channel.type === 0);
+
+                    return React.createElement(React.Fragment, null,
+                        React.createElement('button', { 
+                            onClick: () => setSelectedGuild(null),
+                            style: { 
+                                marginBottom: '16px',
+                                padding: '8px',
+                                backgroundColor: 'var(--background-modifier-accent)',
+                                color: 'var(--text-normal)',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }
+                        }, "Back to Guilds"),
+                        React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' } },
+                            textChannels.map(channel => 
+                                React.createElement('div', { key: channel.id, style: { marginBottom: '8px', color: 'var(--text-normal)' } },
+                                    React.createElement('label', null,
+                                        React.createElement('input', {
+                                            type: "checkbox",
+                                            checked: selectedChannels.has(channel.id),
+                                            onChange: () => toggleChannel(channel.id),
+                                            style: { marginRight: '8px' }
+                                        }),
+                                        channel.name
+                                    )
+                                )
+                            )
+                        )
+                    );
+                };
+
+                return React.createElement(React.Fragment, null,
+                    React.createElement('h3', { 
+                        style: { 
+                            marginBottom: '16px', 
+                            color: 'var(--header-primary)',
+                            textAlign: 'center'
+                        } 
+                    }, `${isBlacklistMode ? "Ignored" : "Allowed"} Channels`),
+                    selectedGuild ? renderChannelList() : renderGuildList()
                 );
             }
 
