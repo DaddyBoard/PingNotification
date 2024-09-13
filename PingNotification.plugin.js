@@ -18,17 +18,17 @@ module.exports = (() => {
                     github_username: "DaddyBoard",
                 }
             ],
-            version: "5.0",
+            version: "5.0.1",
             description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
             github: "https://github.com/DaddyBoard/PingNotification",
             github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
         },
         changelog: [
             {
-                title: "React Rewrite",
+                title: "Changes",
                 items: [
-                    "Completely rewritten using React for better performance and maintainability",
-                    "Fixed issues with custom emoji and bot message rendering"
+                    "By default, you now don't get notifications for channels you're currently in/viewing; though there is a setting to change this behaviour",
+                    "Fixed issues with message-notifications overlapping entirely with a previous text-only message."
                 ]
             }
         ],
@@ -184,16 +184,22 @@ module.exports = (() => {
                     notificationElement.creationTime = Date.now();
                     document.body.appendChild(notificationElement);
 
-                    ReactDOM.render(React.createElement(NotificationComponent, {
-                        message: message,
-                        channel: channel,
-                        settings: this.settings,
-                        onClose: () => this.removeNotification(notificationElement),
-                        onClick: () => {
-                            this.onNotificationClick(channel, message);
-                            this.removeNotification(notificationElement);
-                        }
-                    }), notificationElement);
+                    ReactDOM.render(
+                        React.createElement(NotificationComponent, {
+                            message: message,
+                            channel: channel,
+                            settings: this.settings,
+                            onClose: () => this.removeNotification(notificationElement),
+                            onClick: () => {
+                                this.onNotificationClick(channel, message);
+                                this.removeNotification(notificationElement);
+                            },
+                            onImageLoad: () => {
+                                this.adjustNotificationPositions(); // Re-adjust positions when image loads
+                            }
+                        }),
+                        notificationElement
+                    );
 
                     this.activeNotifications.push(notificationElement);
                     this.adjustNotificationPositions();
@@ -232,7 +238,7 @@ module.exports = (() => {
                     });
 
                     sortedNotifications.forEach((notification) => {
-                        const height = notification.offsetHeight;
+                        const height = notification.offsetHeight; // Get the updated height
                         notification.style.transition = 'all 0.3s ease-in-out';
                         notification.style.position = 'fixed';
 
@@ -252,7 +258,7 @@ module.exports = (() => {
                             notification.style.left = 'auto';
                         }
 
-                        offset += height + 10;
+                        offset += height + 10; // Update offset with the actual height
                     });
                 }
 
@@ -340,7 +346,7 @@ module.exports = (() => {
                 `;
                 }
 
-            function NotificationComponent({ message, channel, settings, onClose, onClick }) {
+            function NotificationComponent({ message, channel, settings, onClose, onClick, onImageLoad }) {
                 const [remainingTime, setRemainingTime] = React.useState(settings.duration);
                 const [isPaused, setIsPaused] = React.useState(false);
                 const [isGlowing, setIsGlowing] = React.useState(true);
@@ -451,7 +457,8 @@ module.exports = (() => {
                         React.createElement('img', { 
                             src: message.attachments[0].url, 
                             alt: "Attachment", 
-                            className: "ping-notification-attachment" 
+                            className: "ping-notification-attachment",
+                            onLoad: onImageLoad
                         }),
                     React.createElement('div', { 
                         style: { 
