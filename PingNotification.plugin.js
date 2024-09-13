@@ -59,7 +59,7 @@ module.exports = (() => {
         const plugin = (Plugin, Library) => {
             const { Patcher, WebpackModules, ReactTools, DiscordModules, Settings } = Library;
             const { React, ReactDOM } = BdApi;
-            const { Dispatcher, UserStore, ChannelStore, GuildStore, NavigationUtils } = DiscordModules;
+            const { Dispatcher, SelectedChannelStore, UserStore, ChannelStore, GuildStore, NavigationUtils } = DiscordModules;
             const { ModalRoot, ModalHeader, ModalCloseButton, ModalContent, ModalFooter, Button } = WebpackModules.getByProps("ModalRoot");
             const GuildChannelsStore = WebpackModules.getByProps("getChannels", "getDefaultChannel");
             const parse = WebpackModules.getByProps("defaultRules", "parse").parse;
@@ -73,7 +73,8 @@ module.exports = (() => {
                         ignoredChannels: [],
                         allowedGuilds: {},
                         popupLocation: "bottomRight",
-                        isBlacklistMode: true
+                        isBlacklistMode: true,
+                        allowNotificationsInCurrentChannel: false
                     };
                     this.activeNotifications = [];
                 }
@@ -82,15 +83,17 @@ module.exports = (() => {
                     this.loadSettings();
                     this.patchDispatcher();
                     BdApi.injectCSS("PingNotificationStyles", this.css);
-                    console.log("PingNotification started"); // Debug log
+                    console.log("PingNotification started");
                 }
 
                 onStop() {
                     Patcher.unpatchAll();
                     this.removeAllNotifications();
                     BdApi.clearCSS("PingNotificationStyles");
-                    console.log("PingNotification stopped"); // Debug log
+                    console.log("PingNotification stopped");
                 }
+
+                
 
                 loadSettings() {
                     const savedSettings = BdApi.getData("PingNotification", "settings");
@@ -122,16 +125,26 @@ module.exports = (() => {
 
                     if (!channel || message.author.id === currentUser.id) return;
 
-                    console.log("Processing message:", message); // Debug log
+                    console.log("Processing message:", message);
 
                     if (this.shouldNotify(message, channel)) {
-                        console.log("Showing notification for message:", message); // Debug log
+                        console.log("Showing notification for message:", message);
                         this.showNotification(message, channel);
                     }
                 }
 
                 shouldNotify(message, channel) {
                     const currentUser = UserStore.getCurrentUser();
+
+                    // Don't notify if the message is in the current channel
+                    if (!this.settings.allowNotificationsInCurrentChannel && channel.id === SelectedChannelStore.getChannelId()) {
+                        return false;
+                    }
+
+                    // Check if the message is ephemeral
+                    if (message.flags && (message.flags & 64) === 64) {
+                        return false;
+                    }
 
                     // Check if the message is a mention or everyone ping
                     const isMention = message.mentions.some(mention => mention.id === currentUser.id) || message.mention_everyone;
@@ -527,6 +540,17 @@ module.exports = (() => {
                         )
                     ),
                     React.createElement('div', { style: { marginBottom: '16px' } },
+                        React.createElement('label', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                            React.createElement('input', {
+                                type: "checkbox",
+                                checked: localSettings.allowNotificationsInCurrentChannel,
+                                onChange: (e) => handleChange('allowNotificationsInCurrentChannel', e.target.checked),
+                                style: { marginRight: '8px' }
+                            }),
+                            "Allow notifications in channels you're currently viewing"
+                        )
+                    ),
+                    React.createElement('div', { style: { marginBottom: '16px' } },
                         React.createElement('label', { style: { display: 'block', marginBottom: '8px' } }, `Notification Duration: ${localSettings.duration / 1000} seconds`),
                         React.createElement('input', { 
                             type: "range", 
@@ -538,6 +562,7 @@ module.exports = (() => {
                             style: { width: '100%' }
                         })
                     ),
+                    
                     React.createElement('div', { style: { marginBottom: '16px' } },
                         React.createElement('label', { style: { display: 'block', marginBottom: '8px' } }, 
                             `${localSettings.isBlacklistMode ? "Ignored" : "Allowed"} Users:`
