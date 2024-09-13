@@ -317,7 +317,7 @@ module.exports = (() => {
                         padding: 0 4px;
                     }
                     .ping-notification-body {
-                        font-size: 16px;
+                        font-size: 15px;
                         margin-bottom: 8px;
                         word-break: break-word;
                     }
