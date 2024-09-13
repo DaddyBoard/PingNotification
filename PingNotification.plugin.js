@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 5.0
+ * @version 5.0.1
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds using React.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
