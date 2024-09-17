@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 5.0.1
+ * @version 5.1
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds using React.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -18,7 +18,7 @@ module.exports = (() => {
                     github_username: "DaddyBoard",
                 }
             ],
-            version: "5.0.1",
+            version: "5.1",
             description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
             github: "https://github.com/DaddyBoard/PingNotification",
             github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
@@ -27,8 +27,11 @@ module.exports = (() => {
             {
                 title: "Changes",
                 items: [
-                    "By default, you now don't get notifications for channels you're currently in/viewing; though there is a setting to change this behaviour",
-                    "Fixed issues with message-notifications overlapping entirely with a previous text-only message."
+                    "+v5.1 - Now some-what displays Embed messages instead of nothing(I will try to improve this)",
+                    "+v5.1 - Now displays the thumbnail of a video instead of nothing.",
+                    "___",
+                    "+v5.0.1 By default, you now don't get notifications for channels you're currently in/viewing; though there is a setting to change this behaviour",
+                    "+v5.0.1 Fixed issues with message-notifications overlapping entirely with a previous text-only message."
                 ]
             }
         ],
@@ -195,7 +198,7 @@ module.exports = (() => {
                                 this.removeNotification(notificationElement);
                             },
                             onImageLoad: () => {
-                                this.adjustNotificationPositions();
+                                this.adjustNotificationPositions(); // Re-adjust positions when image loads
                             }
                         }),
                         notificationElement
@@ -232,7 +235,7 @@ module.exports = (() => {
                     const isTop = popupLocation.startsWith("top");
                     const isLeft = popupLocation.endsWith("Left");
 
-                    
+                    // Sort notifications based on their creation time
                     const sortedNotifications = [...this.activeNotifications].sort((a, b) => {
                         return b.creationTime - a.creationTime;
                     });
@@ -322,6 +325,19 @@ module.exports = (() => {
                         font-size: 18px;
                         padding: 0 4px;
                     }
+                        
+                    .ping-notification-video-attachment {
+                        position: relative;
+                        display: inline-block;
+                        align-self: center;
+                    }
+                    .ping-notification-video-play-button {
+                        opacity: 0.8;
+                        transition: opacity 0.2s ease;
+                    }
+                    .ping-notification-video-attachment:hover .ping-notification-video-play-button {
+                        opacity: 1;
+                    }
                     .ping-notification-body {
                         font-size: 15px;
                         margin-bottom: 8px;
@@ -394,11 +410,92 @@ module.exports = (() => {
                         : `https://cdn.discordapp.com/embed/avatars/${parseInt(message.author.discriminator) % 5}.png`;
                 };
 
-                const truncateMessage = (content) => {
-                    if (content.length > 380) {
-                        return content.substring(0, 380) + "...";
+                const getEmbedContent = (embed) => {
+                    let content = [];
+                    if (embed.title) content.push(`**${embed.title}**`);
+                    if (embed.description) content.push(embed.description);
+                    if (embed.fields) {
+                        embed.fields.forEach(field => {
+                            content.push(`**${field.name}:** ${field.value}`);
+                        });
+                    }
+                    if (embed.footer) content.push(`_${embed.footer.text}_`);
+                    return content.join('\n');
+                };
+
+                const renderAttachment = (attachment) => {
+                    if (attachment.content_type.startsWith('image/')) {
+                        return React.createElement('img', { 
+                            src: attachment.url, 
+                            alt: "Attachment", 
+                            className: "ping-notification-attachment",
+                            onLoad: onImageLoad
+                        });
+                    } else if (attachment.content_type.startsWith('video/')) {
+                        const thumbnailUrl = attachment.proxy_url + '?format=jpeg';
+                        return React.createElement('div', { 
+                            className: "ping-notification-video-attachment",
+                            style: { position: 'relative', display: 'inline-block', alignSelf: 'center' }
+                        },
+                            React.createElement('img', {
+                                src: thumbnailUrl,
+                                alt: "Video Thumbnail",
+                                className: "ping-notification-attachment",
+                                onLoad: onImageLoad
+                            }),
+                            React.createElement('div', {
+                                className: "ping-notification-video-play-button",
+                                style: {
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    width: '48px',
+                                    height: '48px',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center'
+                                }
+                            },
+                                React.createElement('div', {
+                                    style: {
+                                        width: '0',
+                                        height: '0',
+                                        borderTop: '10px solid transparent',
+                                        borderBottom: '10px solid transparent',
+                                        borderLeft: '20px solid white',
+                                        marginLeft: '4px'
+                                    }
+                                })
+                            )
+                        );
+                    }
+                    return null;
+                };
+
+                const truncateMessage = (content, embedContent) => {
+                    const totalLength = content.length + (embedContent ? embedContent.length : 0);
+                    if (totalLength > 380) {
+                        const contentLimit = Math.max(100, 380 - (embedContent ? embedContent.length : 0));
+                        return content.substring(0, contentLimit) + (content.length > contentLimit ? "..." : "");
                     }
                     return content;
+                };
+
+                const getMessageContent = () => {
+                    let content = message.content;
+                    let embedContent = '';
+
+                    if (message.embeds && message.embeds.length > 0) {
+                        embedContent = message.embeds.map(embed => getEmbedContent(embed)).join('\n\n');
+                        if (embedContent) {
+                            embedContent = `\n\n\n${embedContent}`;
+                        }
+                    }
+
+                    return truncateMessage(content, embedContent) + embedContent;
                 };
 
                 const getProgressColor = () => {
@@ -425,74 +522,69 @@ module.exports = (() => {
                 };
 
                 return React.createElement('div', {
-                    className: `ping-notification-content ${isGlowing ? 'glow' : ''}`,
-                    onClick: onClick,
-                    onMouseEnter: () => setIsPaused(true),
-                    onMouseLeave: () => setIsPaused(false),
-                    style: { 
-                        position: 'relative', 
-                        overflow: 'hidden', 
-                        padding: '12px', 
-                        paddingBottom: '20px',
-                        minHeight: '60px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        backgroundColor: 'rgba(41, 43, 47, 0.9)',
-                        backdropFilter: 'blur(5px)',
-                        animation: 'notificationPop 0.5s ease-out',
-                    }
-                },
-                    React.createElement('div', { className: "ping-notification-header" },
-                        React.createElement('img', { src: getAvatarUrl(), alt: "Avatar", className: "ping-notification-avatar" }),
-                        React.createElement('div', { className: "ping-notification-title" }, getNotificationTitle()),
-                        React.createElement('div', { className: "ping-notification-close", onClick: (e) => { e.stopPropagation(); onClose(); } }, '×')
-                    ),
-                    React.createElement('div', { 
-                        className: "ping-notification-body",
-                        style: { flex: 1, marginBottom: '5px' }
+                        className: `ping-notification-content ${isGlowing ? 'glow' : ''}`,
+                        onClick: onClick,
+                        onMouseEnter: () => setIsPaused(true),
+                        onMouseLeave: () => setIsPaused(false),
+                        style: { 
+                            position: 'relative', 
+                            overflow: 'hidden', 
+                            padding: '12px', 
+                            paddingBottom: '20px',
+                            minHeight: '60px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            backgroundColor: 'rgba(41, 43, 47, 0.9)',
+                            backdropFilter: 'blur(5px)',
+                            animation: 'notificationPop 0.5s ease-out',
+                        }
                     },
-                        parse(truncateMessage(message.content), true, { channelId: channel.id })
-                    ),
-                    message.attachments && message.attachments.length > 0 && 
-                        React.createElement('img', { 
-                            src: message.attachments[0].url, 
-                            alt: "Attachment", 
-                            className: "ping-notification-attachment",
-                            onLoad: onImageLoad
+                        React.createElement('div', { className: "ping-notification-header" },
+                            React.createElement('img', { src: getAvatarUrl(), alt: "Avatar", className: "ping-notification-avatar" }),
+                            React.createElement('div', { className: "ping-notification-title" }, getNotificationTitle()),
+                            React.createElement('div', { className: "ping-notification-close", onClick: (e) => { e.stopPropagation(); onClose(); } }, '×')
+                        ),
+                        React.createElement('div', { 
+                            className: "ping-notification-body",
+                            style: { flex: 1, marginBottom: '5px' }
+                        },
+                            parse(getMessageContent(), true, { channelId: channel.id })
+                        ),
+                        message.attachments && message.attachments.length > 0 && 
+                            renderAttachment(message.attachments[0]),
+                        React.createElement('div', { 
+                            style: { 
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                height: '5px',
+                                width: '100%',
+                                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                            }
                         }),
-                    React.createElement('div', { 
-                        style: { 
-                            position: 'absolute',
-                            bottom: 0,
-                            left: 0,
-                            height: '5px',
-                            width: '100%',
-                            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                        }
-                    }),
-                    React.createElement('div', { 
-                        style: { 
-                            position: 'absolute',
-                            bottom: 0,
-                            left: 0,
-                            height: '5px',
-                            width: `${progress}%`,
-                            backgroundColor: getProgressColor(),
-                            transition: 'width 0.1s linear, background-color 0.5s ease',
-                            zIndex: 1,
-                        }
-                    }),
-                    React.createElement('div', {
-                        style: {
-                            position: 'absolute',
-                            bottom: '7px',
-                            right: '7px',
-                            fontSize: '10px',
-                            color: 'rgba(255, 255, 255, 0.7)',
-                        }
-                    }, `${Math.round(remainingTime / 1000)}s`)
-                );
-            }
+                        React.createElement('div', { 
+                            style: { 
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                height: '5px',
+                                width: `${progress}%`,
+                                backgroundColor: getProgressColor(),
+                                transition: 'width 0.1s linear, background-color 0.5s ease',
+                                zIndex: 1,
+                            }
+                        }),
+                        React.createElement('div', {
+                            style: {
+                                position: 'absolute',
+                                bottom: '7px',
+                                right: '7px',
+                                fontSize: '10px',
+                                color: 'rgba(255, 255, 255, 0.7)',
+                            }
+                        }, `${Math.round(remainingTime / 1000)}s`)
+                    );
+                }
 
             function SettingsPanel({ settings, onSettingsChange }) {
                 const [localSettings, setLocalSettings] = React.useState(settings);
@@ -601,7 +693,7 @@ module.exports = (() => {
                             React.createElement('option', { value: "bottomRight" }, "Bottom Right")
                         )
                     ),
-                    // Add the Allowed Guilds section here
+                    
                     React.createElement('div', null,
                         React.createElement('h3', { style: { marginBottom: '8px' } }, 
                             `${localSettings.isBlacklistMode ? "Allowed" : "Ignored"} Guilds:`
