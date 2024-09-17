@@ -195,7 +195,7 @@ module.exports = (() => {
                                 this.removeNotification(notificationElement);
                             },
                             onImageLoad: () => {
-                                this.adjustNotificationPositions(); // Re-adjust positions when image loads
+                                this.adjustNotificationPositions();
                             }
                         }),
                         notificationElement
@@ -232,13 +232,13 @@ module.exports = (() => {
                     const isTop = popupLocation.startsWith("top");
                     const isLeft = popupLocation.endsWith("Left");
 
-                    // Sort notifications based on their creation time
+                    
                     const sortedNotifications = [...this.activeNotifications].sort((a, b) => {
                         return b.creationTime - a.creationTime;
                     });
 
                     sortedNotifications.forEach((notification) => {
-                        const height = notification.offsetHeight; // Get the updated height
+                        const height = notification.offsetHeight;
                         notification.style.transition = 'all 0.3s ease-in-out';
                         notification.style.position = 'fixed';
 
@@ -258,7 +258,7 @@ module.exports = (() => {
                             notification.style.left = 'auto';
                         }
 
-                        offset += height + 10; // Update offset with the actual height
+                        offset += height + 10;
                     });
                 }
 
