@@ -1,8 +1,8 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 5.1
- * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds using React.
+ * @version 5.2
+ * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
  */
@@ -18,7 +18,7 @@ module.exports = (() => {
                     github_username: "DaddyBoard",
                 }
             ],
-            version: "5.1",
+            version: "5.2",
             description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
             github: "https://github.com/DaddyBoard/PingNotification",
             github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
@@ -27,11 +27,7 @@ module.exports = (() => {
             {
                 title: "Changes",
                 items: [
-                    "+v5.1 - Now some-what displays Embed messages instead of nothing(I will try to improve this)",
-                    "+v5.1 - Now displays the thumbnail of a video instead of nothing.",
-                    "___",
-                    "+v5.0.1 By default, you now don't get notifications for channels you're currently in/viewing; though there is a setting to change this behaviour",
-                    "+v5.0.1 Fixed issues with message-notifications overlapping entirely with a previous text-only message."
+                    "+v5.2 - Fixed 'Unknown Server' appearing on popups; discord broke something there."
                 ]
             }
         ],
@@ -60,11 +56,11 @@ module.exports = (() => {
         stop() { }
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Library) => {
-            const { Patcher, WebpackModules, ReactTools, DiscordModules, Settings } = Library;
+            const { Patcher, WebpackModules, DiscordModules } = Library;
             const { React, ReactDOM } = BdApi;
-            const { Dispatcher, SelectedChannelStore, UserStore, ChannelStore, GuildStore, NavigationUtils } = DiscordModules;
-            const { ModalRoot, ModalHeader, ModalCloseButton, ModalContent, ModalFooter, Button } = WebpackModules.getByProps("ModalRoot");
-            const GuildChannelsStore = WebpackModules.getByProps("getChannels", "getDefaultChannel");
+            const { Dispatcher, SelectedChannelStore, UserStore, ChannelStore, NavigationUtils } = DiscordModules;
+            const { Webpack } = BdApi;
+            const GuildStore = Webpack.getStore("GuildStore");
             const parse = WebpackModules.getByProps("defaultRules", "parse").parse;
             const { debounce } = WebpackModules.getByProps('debounce');
             class PingNotification extends Plugin {
@@ -128,7 +124,7 @@ module.exports = (() => {
 
                     if (!channel || message.author.id === currentUser.id) return;
 
-                    console.log("Processing message:", message);
+                    //console.log("Processing message:", message);
 
                     if (this.shouldNotify(message, channel)) {
                         console.log("Showing notification for message:", message);
@@ -397,7 +393,11 @@ module.exports = (() => {
                     let title = message.author.username;
                     if (channel.guild_id) {
                         const guild = GuildStore.getGuild(channel.guild_id);
-                        title += ` • ${guild ? guild.name : 'Unknown Server'} • #${channel.name}`;
+                        if (guild && guild.name) {
+                            title += ` • ${guild.name} • #${channel.name}`;
+                        } else {
+                            title += ` • Unknown Server • #${channel.name}`;
+                        }
                     } else {
                         title += ` • DM`;
                     }
