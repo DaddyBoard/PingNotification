@@ -512,7 +512,7 @@ module.exports = (() => {
                         color = red;
                     }
 
-                    return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                    return color;
                 };
 
                 const interpolateColor = (color1, color2, factor) => {
@@ -520,6 +520,9 @@ module.exports = (() => {
                         Math.round(channel + (color2[index] - channel) * factor)
                     );
                 };
+
+                const progressColor = getProgressColor();
+                const progressColorString = `rgb(${progressColor[0]}, ${progressColor[1]}, ${progressColor[2]})`;
 
                 return React.createElement('div', {
                         className: `ping-notification-content ${isGlowing ? 'glow' : ''}`,
@@ -569,7 +572,7 @@ module.exports = (() => {
                                 left: 0,
                                 height: '5px',
                                 width: `${progress}%`,
-                                backgroundColor: getProgressColor(),
+                                backgroundColor: progressColorString,
                                 transition: 'width 0.1s linear, background-color 0.5s ease',
                                 zIndex: 1,
                             }
@@ -579,8 +582,10 @@ module.exports = (() => {
                                 position: 'absolute',
                                 bottom: '7px',
                                 right: '7px',
-                                fontSize: '10px',
-                                color: 'rgba(255, 255, 255, 0.7)',
+                                fontSize: '13px',
+                                color: progressColorString,
+                                transition: 'color 0.5s ease',
+                                fontWeight: 'bold',
                             }
                         }, `${Math.round(remainingTime / 1000)}s`)
                     );
