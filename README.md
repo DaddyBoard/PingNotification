@@ -47,7 +47,7 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 
 Stickers do not display in the notification window.
 
-If you encounter any problems, please [open an issue](https://github.com/yourusername/PingNotification/issues).
+If you encounter any problems, please [open an issue](https://github.com/DaddyBoard/PingNotification/issues).
 
 ## 📄 License
 
@@ -55,7 +55,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/yourusername/PingNotification/issues).
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/DaddyBoard/PingNotification/issues).
 
 ## 🌟 Show your support
 
