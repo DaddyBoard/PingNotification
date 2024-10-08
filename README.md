@@ -45,7 +45,9 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 
 ## 🐛 Known Issues
 
-As of now, there are no known issues. If you encounter any problems, please [open an issue](https://github.com/yourusername/PingNotification/issues).
+Stickers do not display in the notification window.
+
+If you encounter any problems, please [open an issue](https://github.com/yourusername/PingNotification/issues).
 
 ## 📄 License
 
