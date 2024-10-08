@@ -1,20 +1,61 @@
 # PingNotification
-BetterDiscord plugin to display in-app notifications. This is a lightweight alternative to "AppNotifications" and isn't meant to be anything super fantastic. 
 
-# **Understanding default operation:**
+![GitHub stars](https://img.shields.io/github/stars/DaddyBoard/PingNotification?style=social)
+![GitHub forks](https://img.shields.io/github/forks/DaddyBoard/PingNotification?style=social)
+![GitHub issues](https://img.shields.io/github/issues/DaddyBoard/PingNotification)
+![GitHub license](https://img.shields.io/github/license/DaddyBoard/PingNotification)
 
-Out of the box, PingNotification will only work for mentions, DM's and In-line Replies (same as mention).
-Upon going into BetterDiscord > Plugins > PingNotification settings > you will see options here to allow what servers should notify **all** messages, regardless of mentions and 'mute' status of the server. You can also block individual User ID's aswell as blocking specific channels. 
+A lightweight BetterDiscord plugin to display in-app notifications. This is a sleek alternative to "AppNotifications" that focuses on simplicity and efficiency.
 
-# v5.3
-* Made the settings panel more user-friendly and functional. Specifically the 'Ignored/Allowed Users' and 'Allowed/Ignored Channels' sections. Count indicators for selected channels and guilds have been added.
-* Added privacy mode to settings. This will blur the content of the notification, until hovered over. Re-blur will occur when NOT hovered over again.
+## 🚀 Features
 
-# v5.2 Update
-Fixed notifications showing "Unknown Server". Discord changed something again. 
+- In-app notifications for mentions, DMs, and in-line replies
+- Customizable server-specific notifications
+- User and channel blocking capabilities
+- Privacy mode for content protection
 
-# v5.0 MEGA Update
-* Completely rewritten using React for better performance and maintainability
-* Fixed issues with custom emoji and bot message rendering
+## 🔧 Default Operation
 
-As of right now, there are no known issues.
+Out of the box, PingNotification works for:
+- Mentions
+- Direct Messages (DMs)
+- In-line Replies (same as mention)
+
+## ⚙️ Configuration
+
+Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
+- Allow specific servers to notify **all** messages
+- Block individual User IDs
+- Block specific channels
+
+## 📦 Latest Updates
+
+### v5.3
+![v5.3 Demo](https://i.imgur.com/Y69pIG0.gif)
+
+- Enhanced settings panel for improved user experience
+- Added count indicators for selected channels and guilds
+- Introduced privacy mode to blur notification content until hover
+
+### v5.2
+- Fixed "Unknown Server" notification issue
+
+### v5.0 MEGA Update
+- Complete rewrite using React for better performance
+- Improved custom emoji and bot message rendering
+
+## 🐛 Known Issues
+
+As of now, there are no known issues. If you encounter any problems, please [open an issue](https://github.com/yourusername/PingNotification/issues).
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/yourusername/PingNotification/issues).
+
+## 🌟 Show your support
+
+Give a ⭐️ if this project helped you!
