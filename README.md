@@ -36,13 +36,6 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 - Added count indicators for selected channels and guilds
 - Introduced privacy mode to blur notification content until hover
 
-### v5.2
-- Fixed "Unknown Server" notification issue
-
-### v5.0 MEGA Update
-- Complete rewrite using React for better performance
-- Improved custom emoji and bot message rendering
-
 ## 🐛 Known Issues
 
 Stickers do not display in the notification window.
