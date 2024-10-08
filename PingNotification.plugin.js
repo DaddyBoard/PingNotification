@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 5.2
+ * @version 5.3
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -18,7 +18,7 @@ module.exports = (() => {
                     github_username: "DaddyBoard",
                 }
             ],
-            version: "5.2",
+            version: "5.3",
             description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
             github: "https://github.com/DaddyBoard/PingNotification",
             github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
@@ -27,12 +27,14 @@ module.exports = (() => {
             {
                 title: "Changes",
                 items: [
-                    "+v5.2 - Fixed 'Unknown Server' appearing on popups; discord broke something there."
+                    "+v5.3 - Made the settings panel more user-friendly and functional. Specifically the 'Ignored/Allowed Users' and 'Allowed/Ignored Channels' sections. Count indicators for selected channels and guilds have been added.",
+                    "+v5.3 - Added privacy mode to settings. This will blur the content of the notification, until hovered over. Re-blur will occur when NOT hovered over again."
                 ]
             }
         ],
         main: "index.js"
     };
+
 
     return !global.ZeresPluginLibrary ? class {
         constructor() { this._config = config; }
@@ -73,7 +75,8 @@ module.exports = (() => {
                         allowedGuilds: {},
                         popupLocation: "bottomRight",
                         isBlacklistMode: true,
-                        allowNotificationsInCurrentChannel: false
+                        allowNotificationsInCurrentChannel: false,
+                        privacyMode: false
                     };
                     this.activeNotifications = [];
                 }
@@ -135,7 +138,7 @@ module.exports = (() => {
                 shouldNotify(message, channel) {
                     const currentUser = UserStore.getCurrentUser();
 
-                    // Don't notify if the message is in the current channel
+                    
                     if (!this.settings.allowNotificationsInCurrentChannel && channel.id === SelectedChannelStore.getChannelId()) {
                         return false;
                     }
@@ -194,7 +197,7 @@ module.exports = (() => {
                                 this.removeNotification(notificationElement);
                             },
                             onImageLoad: () => {
-                                this.adjustNotificationPositions(); // Re-adjust positions when image loads
+                                this.adjustNotificationPositions();
                             }
                         }),
                         notificationElement
@@ -228,10 +231,8 @@ module.exports = (() => {
                 adjustNotificationPositions() {
                     const { popupLocation } = this.settings;
                     let offset = 20;
-                    const isTop = popupLocation.startsWith("top");
-                    const isLeft = popupLocation.endsWith("Left");
+                    const isTop = popupLocation.startsWith("top");                    const isLeft = popupLocation.endsWith("Left");
 
-                    // Sort notifications based on their creation time
                     const sortedNotifications = [...this.activeNotifications].sort((a, b) => {
                         return b.creationTime - a.creationTime;
                     });
@@ -344,6 +345,15 @@ module.exports = (() => {
                         max-height: 150px;
                         border-radius: 4px;
                         margin-top: 8px;
+                    }
+                    .ping-notification-content.privacy-mode .ping-notification-body,
+                    .ping-notification-content.privacy-mode .ping-notification-attachment {
+                        filter: blur(15px);
+                        transition: filter 0.3s ease;
+                    }
+                    .ping-notification-content.privacy-mode:hover .ping-notification-body,
+                    .ping-notification-content.privacy-mode:hover .ping-notification-attachment {
+                        filter: blur(0);
                     }
                     @keyframes notificationPop {
                         0% { transform: scale(0.9); opacity: 0; }
@@ -524,24 +534,24 @@ module.exports = (() => {
                 const progressColor = getProgressColor();
                 const progressColorString = `rgb(${progressColor[0]}, ${progressColor[1]}, ${progressColor[2]})`;
 
-                return React.createElement('div', {
-                        className: `ping-notification-content ${isGlowing ? 'glow' : ''}`,
-                        onClick: onClick,
-                        onMouseEnter: () => setIsPaused(true),
-                        onMouseLeave: () => setIsPaused(false),
-                        style: { 
-                            position: 'relative', 
-                            overflow: 'hidden', 
-                            padding: '12px', 
-                            paddingBottom: '20px',
-                            minHeight: '60px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            backgroundColor: 'rgba(41, 43, 47, 0.9)',
-                            backdropFilter: 'blur(5px)',
-                            animation: 'notificationPop 0.5s ease-out',
-                        }
-                    },
+                        return React.createElement('div', {
+                            className: `ping-notification-content ${isGlowing ? 'glow' : ''} ${settings.privacyMode ? 'privacy-mode' : ''}`,
+                            onClick: onClick,
+                            onMouseEnter: () => setIsPaused(true),
+                            onMouseLeave: () => setIsPaused(false),
+                            style: { 
+                                position: 'relative', 
+                                overflow: 'hidden', 
+                                padding: '12px', 
+                                paddingBottom: '20px',
+                                minHeight: '60px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                backgroundColor: 'rgba(41, 43, 47, 0.9)',
+                                backdropFilter: 'blur(5px)',
+                                animation: 'notificationPop 0.5s ease-out',
+                            }
+                        },
                         React.createElement('div', { className: "ping-notification-header" },
                             React.createElement('img', { src: getAvatarUrl(), alt: "Avatar", className: "ping-notification-avatar" }),
                             React.createElement('div', { className: "ping-notification-title" }, getNotificationTitle()),
@@ -625,7 +635,8 @@ module.exports = (() => {
                         {
                             confirmText: "Save",
                             cancelText: "Cancel",
-                            onConfirm: () => {}
+                            onConfirm: () => {},
+                            width: "600px"
                         }
                     );
                 };
@@ -641,6 +652,17 @@ module.exports = (() => {
                                 style: { marginRight: '8px' }
                             }),
                             localSettings.isBlacklistMode ? "Blacklist Mode" : "Whitelist Mode"
+                        )
+                    ),
+                    React.createElement('div', { style: { marginBottom: '16px' } },
+                        React.createElement('label', { style: { display: 'flex', alignItems: 'center', marginBottom: '8px' } },
+                            React.createElement('input', {
+                                type: "checkbox",
+                                checked: localSettings.privacyMode,
+                                onChange: (e) => handleChange('privacyMode', e.target.checked),
+                                style: { marginRight: '8px' }
+                            }),
+                            "Privacy Mode"
                         )
                     ),
                     React.createElement('div', { style: { marginBottom: '16px' } },
@@ -731,19 +753,23 @@ module.exports = (() => {
                         .filter(user => user != null);
                 }, []);
 
-                const debouncedSearch = React.useMemo(
-                    () => debounce((term) => {
-                        const filtered = friends.filter(friend => 
-                            friend.username.toLowerCase().includes(term.toLowerCase())
-                        );
-                        setFilteredFriends(filtered);
-                    }, 300),
-                    [friends]
-                );
+                const sortedFriends = React.useMemo(() => {
+                    return friends.sort((a, b) => {
+                        const aSelected = selectedUsers.has(a.id);
+                        const bSelected = selectedUsers.has(b.id);
+                        if (aSelected === bSelected) {
+                            return a.username.localeCompare(b.username);
+                        }
+                        return aSelected ? -1 : 1;
+                    });
+                }, [friends, selectedUsers]);
 
                 React.useEffect(() => {
-                    debouncedSearch(searchTerm);
-                }, [searchTerm, debouncedSearch]);
+                    const filtered = sortedFriends.filter(friend => 
+                        friend.username.toLowerCase().includes(searchTerm.toLowerCase())
+                    );
+                    setFilteredFriends(filtered);
+                }, [searchTerm, sortedFriends]);
 
                 const toggleUser = (userId) => {
                     setSelectedUsers(prevSelected => {
@@ -852,23 +878,52 @@ module.exports = (() => {
                 const [selectedChannels, setSelectedChannels] = React.useState(new Set(currentChannels));
                 const [selectedGuild, setSelectedGuild] = React.useState(null);
                 const [searchTerm, setSearchTerm] = React.useState("");
+                const channelListRef = React.useRef(null);
 
                 const guilds = Object.values(GuildStore.getGuilds());
                 const GuildChannelsStore = WebpackModules.getByProps("getChannels", "getDefaultChannel");
 
-                const filteredGuilds = guilds.filter(guild => 
-                    guild.name.toLowerCase().includes(searchTerm.toLowerCase())
-                );
+                const countSelectedChannelsForGuild = React.useCallback((guildId) => {
+                    const guildChannels = GuildChannelsStore.getChannels(guildId);
+                    const textChannels = guildChannels.SELECTABLE.map(channel => channel.channel).filter(channel => channel.type === 0);
+                    return textChannels.filter(channel => selectedChannels.has(channel.id)).length;
+                }, [selectedChannels]);
+
+                const sortedGuilds = React.useMemo(() => {
+                    return guilds.sort((a, b) => {
+                        const aCount = countSelectedChannelsForGuild(a.id);
+                        const bCount = countSelectedChannelsForGuild(b.id);
+                        if (aCount === bCount) {
+                            return a.name.localeCompare(b.name);
+                        }
+                        return bCount - aCount;
+                    });
+                }, [guilds, countSelectedChannelsForGuild]);
+
+                const filteredGuilds = React.useMemo(() => 
+                    sortedGuilds.filter(guild => 
+                        guild.name.toLowerCase().includes(searchTerm.toLowerCase())
+                    ),
+                [sortedGuilds, searchTerm]);
 
                 const toggleChannel = (channelId) => {
-                    const newSelectedChannels = new Set(selectedChannels);
-                    if (newSelectedChannels.has(channelId)) {
-                        newSelectedChannels.delete(channelId);
-                    } else {
-                        newSelectedChannels.add(channelId);
+                    setSelectedChannels(prev => {
+                        const newSet = new Set(prev);
+                        if (newSet.has(channelId)) {
+                            newSet.delete(channelId);
+                        } else {
+                            newSet.add(channelId);
+                        }
+                        onSave(Array.from(newSet));
+                        return newSet;
+                    });
+                };
+
+                const selectGuild = (guild) => {
+                    setSelectedGuild(guild);
+                    if (channelListRef.current) {
+                        channelListRef.current.scrollTop = 0;
                     }
-                    setSelectedChannels(newSelectedChannels);
-                    onSave(Array.from(newSelectedChannels));
                 };
 
                 const renderGuildList = () => {
@@ -888,23 +943,55 @@ module.exports = (() => {
                                 borderRadius: '4px'
                             }
                         }),
-                        React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' } },
-                            filteredGuilds.map(guild => 
-                                React.createElement('div', { 
+                        React.createElement('div', { 
+                            style: { 
+                                maxHeight: '300px', 
+                                overflowY: 'auto',
+                                overflowX: 'hidden',
+                                paddingRight: '15px'
+                            } 
+                        },
+                            filteredGuilds.map(guild => {
+                                const selectedCount = countSelectedChannelsForGuild(guild.id);
+                                return React.createElement('div', { 
                                     key: guild.id, 
-                                    onClick: () => setSelectedGuild(guild),
+                                    onClick: () => selectGuild(guild),
                                     style: { 
                                         cursor: 'pointer', 
                                         padding: '8px', 
                                         marginBottom: '8px', 
                                         backgroundColor: 'var(--background-secondary)',
                                         color: 'var(--text-normal)',
-                                        borderRadius: '4px'
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        transition: 'box-shadow 0.2s ease',
+                                        boxShadow: selectedCount > 0 ? '0 0 0 1px var(--brand-experiment), 0 0 0 3px var(--brand-experiment-15a)' : 'none',
+                                        position: 'relative',
+                                        left: selectedCount > 0 ? '3px' : '0',
+                                        width: selectedCount > 0 ? 'calc(100% - 3px)' : '100%' 
                                     }
                                 },
-                                    guild.name
-                                )
-                            )
+                                    React.createElement('span', {
+                                        style: {
+                                            fontWeight: selectedCount > 0 ? 'bold' : 'normal'
+                                        }
+                                    }, guild.name),
+                                    selectedCount > 0 && React.createElement('span', {
+                                        style: {
+                                            backgroundColor: 'var(--brand-experiment)',
+                                            color: 'white',
+                                            borderRadius: '12px',
+                                            padding: '4px 8px',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold',
+                                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+                                            marginRight: '15px'
+                                        }
+                                    }, selectedCount)
+                                );
+                            })
                         )
                     );
                 };
@@ -912,6 +999,15 @@ module.exports = (() => {
                 const renderChannelList = () => {
                     const guildChannels = GuildChannelsStore.getChannels(selectedGuild.id);
                     const textChannels = guildChannels.SELECTABLE.map(channel => channel.channel).filter(channel => channel.type === 0);
+
+                    const sortedChannels = textChannels.sort((a, b) => {
+                        const aSelected = selectedChannels.has(a.id);
+                        const bSelected = selectedChannels.has(b.id);
+                        if (aSelected === bSelected) {
+                            return a.name.localeCompare(b.name);
+                        }
+                        return aSelected ? -1 : 1;
+                    });
 
                     return React.createElement(React.Fragment, null,
                         React.createElement('button', { 
@@ -926,8 +1022,11 @@ module.exports = (() => {
                                 cursor: 'pointer'
                             }
                         }, "Back to Guilds"),
-                        React.createElement('div', { style: { maxHeight: '300px', overflowY: 'auto' } },
-                            textChannels.map(channel => 
+                        React.createElement('div', { 
+                            ref: channelListRef,
+                            style: { maxHeight: '300px', overflowY: 'auto' }
+                        },
+                            sortedChannels.map(channel => 
                                 React.createElement('div', { key: channel.id, style: { marginBottom: '8px', color: 'var(--text-normal)' } },
                                     React.createElement('label', null,
                                         React.createElement('input', {
