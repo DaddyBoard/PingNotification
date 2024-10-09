@@ -34,6 +34,7 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 - Enhanced settings panel for improved user experience
 - Added count indicators for selected channels and guilds
 - Introduced privacy mode to blur notification content until hover
+  
 ![v5.3 Demo](https://i.imgur.com/Y69pIG0.gif)
 
 ## 🐛 Known Issues
