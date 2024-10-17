@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 5.4
+ * @version 5.4.1
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -18,7 +18,7 @@ module.exports = (() => {
                     github_username: "DaddyBoard",
                 }
             ],
-            version: "5.4",
+            version: "5.4.1",
             description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
             github: "https://github.com/DaddyBoard/PingNotification",
             github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
@@ -67,7 +67,10 @@ module.exports = (() => {
             const GuildStore = Webpack.getStore("GuildStore");
             const parse = WebpackModules.getByProps("defaultRules", "parse").parse;
             const { debounce } = WebpackModules.getByProps('debounce');
+
+            
             class PingNotification extends Plugin {
+                
                 constructor() {
                     super();
                     this.defaultSettings = {
@@ -80,7 +83,7 @@ module.exports = (() => {
                         allowNotificationsInCurrentChannel: false,
                         privacyMode: false,
                         coloredUsernames: true,
-                        showNicknames: false // New setting
+                        showNicknames: false
                     };
                     this.activeNotifications = [];
                 }
@@ -99,8 +102,6 @@ module.exports = (() => {
                     console.log("PingNotification stopped");
                 }
 
-                
-
                 loadSettings() {
                     const savedSettings = BdApi.getData("PingNotification", "settings");
                     this.settings = {
@@ -108,14 +109,14 @@ module.exports = (() => {
                         ...savedSettings,
                         ignoredUsers: Array.isArray(savedSettings?.ignoredUsers) ? savedSettings.ignoredUsers : [],
                         ignoredChannels: Array.isArray(savedSettings?.ignoredChannels) ? savedSettings.ignoredChannels : [],
-                        showNicknames: savedSettings?.showNicknames || false // Load the new setting
+                        showNicknames: savedSettings?.showNicknames || false
                     };
-                    console.log("Settings loaded:", this.settings); // Debug log
+                    console.log("Settings loaded:", this.settings);
                 }
 
                 saveSettings() {
                     BdApi.setData("PingNotification", "settings", this.settings);
-                    console.log("Settings saved:", this.settings); // Debug log
+                    console.log("Settings saved:", this.settings);
                 }
 
                 patchDispatcher() {
@@ -132,8 +133,6 @@ module.exports = (() => {
 
                     if (!channel || message.author.id === currentUser.id) return;
 
-                    //console.log("Processing message:", message);
-
                     if (this.shouldNotify(message, channel)) {
                         console.log("Showing notification for message:", message);
                         this.showNotification(message, channel);
@@ -142,27 +141,18 @@ module.exports = (() => {
 
                 shouldNotify(message, channel) {
                     const currentUser = UserStore.getCurrentUser();
-
                     
                     if (!this.settings.allowNotificationsInCurrentChannel && channel.id === SelectedChannelStore.getChannelId()) {
                         return false;
                     }
 
-                    // Check if the message is ephemeral
                     if (message.flags && (message.flags & 64) === 64) {
                         return false;
                     }
 
-                    // Check if the message is a mention or everyone ping
                     const isMention = message.mentions.some(mention => mention.id === currentUser.id) || message.mention_everyone;
-
-                    // Check if the author is in the ignored/allowed users list
                     const isUserListed = this.settings.ignoredUsers.includes(message.author.id);
-
-                    // Check if the channel is in the ignored/allowed channels list
                     const isChannelListed = this.settings.ignoredChannels.includes(channel.id);
-
-                    // Check if the guild is in the allowed guilds list
                     const isGuildAllowed = this.settings.allowedGuilds[channel.guild_id] || false;
 
                     if (message.mention_roles.length > 0) {
@@ -176,13 +166,13 @@ module.exports = (() => {
                     if (!channel.guild_id) return true; // Always notify for DMs
 
                     if (this.settings.isBlacklistMode) {
-                        // In blacklist mode, notify if not listed and guild is allowed (unless it's a mention)
                         return isMention || (!isUserListed && !isChannelListed && isGuildAllowed);
                     } else {
-                        // In whitelist mode, only notify if listed or guild is allowed (or if it's a mention)
                         return isMention || isUserListed || isChannelListed || isGuildAllowed;
                     }
                 }
+
+                
 
                 showNotification(message, channel) {
                     console.log("Creating notification element");
@@ -236,7 +226,8 @@ module.exports = (() => {
                 adjustNotificationPositions() {
                     const { popupLocation } = this.settings;
                     let offset = 20;
-                    const isTop = popupLocation.startsWith("top");                    const isLeft = popupLocation.endsWith("Left");
+                    const isTop = popupLocation.startsWith("top");
+                    const isLeft = popupLocation.endsWith("Left");
 
                     const sortedNotifications = [...this.activeNotifications].sort((a, b) => {
                         return b.creationTime - a.creationTime;
@@ -1166,7 +1157,6 @@ module.exports = (() => {
                 );
             }
 
-            // Add this function at the top level of your plugin
             const getRoles = (guild) => guild?.roles ?? GuildStore.getRoles(guild?.id);
 
             return PingNotification;
