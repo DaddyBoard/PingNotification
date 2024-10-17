@@ -27,6 +27,7 @@ module.exports = (() => {
             {
                 title: "Changes",
                 items: [
+                    "+v5.4.1 - Little tidy up.",
                     "+v5.4 - Added a new setting to show nicknames instead of usernames **from the server the message was sent in**. Disabled by default.",
                     "+v5.4 - Added a new setting to show senders color based on their role **from the server the message was sent in**. Disabled by default.",
                     "+v5.4 - General code improvements and optimizations.",
