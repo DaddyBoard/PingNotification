@@ -27,6 +27,7 @@ module.exports = (() => {
             {
                 title: "Changes",
                 items: [
+                    "+v5.4.1 - You can now swipe the notification to the left or right to close it, depending on notification location. *Swipe animation will come later*",
                     "+v5.4.1 - Little tidy up.",
                     "+v5.4 - Added a new setting to show nicknames instead of usernames **from the server the message was sent in**. Disabled by default.",
                     "+v5.4 - Added a new setting to show senders color based on their role **from the server the message was sent in**. Disabled by default.",
@@ -164,7 +165,7 @@ module.exports = (() => {
                         }
                     }
 
-                    if (!channel.guild_id) return true; // Always notify for DMs
+                    if (!channel.guild_id) return true;
 
                     if (this.settings.isBlacklistMode) {
                         return isMention || (!isUserListed && !isChannelListed && isGuildAllowed);
@@ -178,7 +179,7 @@ module.exports = (() => {
                 showNotification(message, channel) {
                     console.log("Creating notification element");
                     const notificationElement = document.createElement('div');
-                    notificationElement.className = 'ping-notification';
+                    notificationElement.className = 'ping-notification glow';
                     notificationElement.creationTime = Date.now();
                     document.body.appendChild(notificationElement);
 
@@ -194,6 +195,16 @@ module.exports = (() => {
                             },
                             onImageLoad: () => {
                                 this.adjustNotificationPositions();
+                            },
+                            onSwipe: (direction) => {
+                                const isRightSwipe = direction === 'right';
+                                const isLeftSwipe = direction === 'left';
+                                const isRightLocation = this.settings.popupLocation.endsWith("Right");
+                                const isLeftLocation = this.settings.popupLocation.endsWith("Left");
+
+                                if ((isRightSwipe && isRightLocation) || (isLeftSwipe && isLeftLocation)) {
+                                    this.removeNotification(notificationElement);
+                                }
                             }
                         }),
                         notificationElement
@@ -278,13 +289,13 @@ module.exports = (() => {
                     .ping-notification {
                         position: fixed;
                         width: 350px;
-                        background-color: rgba(41, 43, 47, 0.9);
+                        background-color: rgba(255, 255, 255, 0.5);
                         color: var(--text-normal);
                         border-radius: 8px;
-                        box-shadow: var(--elevation-high);
+                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
                         z-index: 9999;
                         overflow: hidden;
-                        backdrop-filter: blur(5px);
+                        backdrop-filter: blur(7px);
                         animation: notificationPop 0.5s ease-out;
                     }
                     .ping-notification.glow {
@@ -294,6 +305,7 @@ module.exports = (() => {
                         padding: 12px;
                         cursor: pointer;
                         position: relative;
+                        color: var(--text-normal);
                     }
                     .ping-notification-header {
                         display: flex;
@@ -365,7 +377,7 @@ module.exports = (() => {
                 `;
                 }
 
-            function NotificationComponent({ message, channel, settings, onClose, onClick, onImageLoad }) {
+            function NotificationComponent({ message, channel, settings, onClose, onClick, onImageLoad, onSwipe }) {
                 const [remainingTime, setRemainingTime] = React.useState(settings.duration);
                 const [isPaused, setIsPaused] = React.useState(false);
                 const [isGlowing, setIsGlowing] = React.useState(true);
@@ -419,7 +431,7 @@ module.exports = (() => {
 
                 const getRoleColor = () => {
                     if (!message.guild_id) {
-                        return null; // DM or group chat
+                        return null;
                     }
 
                     const guild = GuildStore.getGuild(message.guild_id);
@@ -606,11 +618,42 @@ module.exports = (() => {
                     return message.author.username;
                 };
 
+                const handleSwipe = (e) => {
+                    const startX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const handleMove = (moveEvent) => {
+                        const currentX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+                        const deltaX = currentX - startX;
+                        const threshold = 100;
+
+                        if (Math.abs(deltaX) > threshold) {
+                            onSwipe(deltaX > 0 ? 'right' : 'left');
+                            document.removeEventListener('mousemove', handleMove);
+                            document.removeEventListener('mouseup', handleEnd);
+                            document.removeEventListener('touchmove', handleMove);
+                            document.removeEventListener('touchend', handleEnd);
+                        }
+                    };
+
+                    const handleEnd = () => {
+                        document.removeEventListener('mousemove', handleMove);
+                        document.removeEventListener('mouseup', handleEnd);
+                        document.removeEventListener('touchmove', handleMove);
+                        document.removeEventListener('touchend', handleEnd);
+                    };
+
+                    document.addEventListener('mousemove', handleMove);
+                    document.addEventListener('mouseup', handleEnd);
+                    document.addEventListener('touchmove', handleMove);
+                    document.addEventListener('touchend', handleEnd);
+                };
+
                 return React.createElement('div', {
                     className: `ping-notification-content ${isGlowing ? 'glow' : ''} ${settings.privacyMode ? 'privacy-mode' : ''}`,
                     onClick: onClick,
                     onMouseEnter: () => setIsPaused(true),
                     onMouseLeave: () => setIsPaused(false),
+                    onMouseDown: handleSwipe,
+                    onTouchStart: handleSwipe,
                     style: { 
                         position: 'relative', 
                         overflow: 'hidden', 
@@ -632,7 +675,7 @@ module.exports = (() => {
                         },
                             React.createElement('span', {
                                 style: settings.coloredUsernames && roleColor ? { color: roleColor, fontWeight: 'bold', marginRight: '5px' } : { marginRight: '5px' }
-                            }, getDisplayName()), // Use getDisplayName() here
+                            }, getDisplayName()),
                             React.createElement('span', null, getNotificationTitle())
                         ),
                         React.createElement('div', { className: "ping-notification-close", onClick: (e) => { e.stopPropagation(); onClose(); } }, '×')
