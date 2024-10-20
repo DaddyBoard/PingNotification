@@ -89,7 +89,7 @@ module.exports = class PingNotification {
                 this.updateNotice = null;
             }
 
-            BdApi.UI.showToast(`${this.config.info.name} updated successfully. Please reload Discord to apply changes.`, {type: "success"});
+            BdApi.UI.showToast(`${this.config.info.name} updated successfully.`, {type: "success"});
 
         } catch (error) {
             console.error("Failed to update plugin:", error);
