@@ -165,7 +165,7 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "5.1",
+                version: "6.0",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
