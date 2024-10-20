@@ -29,17 +29,36 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 
 ## 📦 Latest Updates
 
-### v5.3
+<details open>
+<summary><strong>v6.0</strong></summary>
+
+- **Major change:** Moved away from ZeresPluginLibrary to use built-in BdApi.
+- General code improvements and optimizations.
+</details>
+
+<details>
+<summary><strong>v5.4.1</strong></summary>
+
+- You can now swipe the notification to the left or right to close it, depending on notification location.
+- Added a new setting to show nicknames instead of usernames from the server the message was sent in. *Disabled by default.*
+- Added a new setting to show senders color based on their role from the server the message was sent in. *Disabled by default.*
+- General code improvements and optimizations.
+</details>
+
+<details>
+<summary><strong>v5.3</strong></summary>
 
 - Enhanced settings panel for improved user experience
 - Added count indicators for selected channels and guilds
 - Introduced privacy mode to blur notification content until hover
   
 ![v5.3 Demo](https://i.imgur.com/Y69pIG0.gif)
+</details>
 
 ## 🐛 Known Issues
 
-Stickers do not display in the notification window.
+- Mentions of your username will be the role color of the server you're currently in, not the server the message was sent in. *(help wanted: I'm not sure how to fix this one)*
+- Stickers do not display in the notification window.
 
 If you encounter any problems, please [open an issue](https://github.com/DaddyBoard/PingNotification/issues).
 
