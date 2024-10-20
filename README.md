@@ -4,7 +4,7 @@
 ![GitHub forks](https://img.shields.io/github/forks/DaddyBoard/PingNotification?style=social)
 ![GitHub issues](https://img.shields.io/github/issues/DaddyBoard/PingNotification)
 
-A lightweight BetterDiscord plugin to display in-app notifications. This is a sleek alternative to "AppNotifications" that focuses on simplicity and efficiency.
+A lightweight BetterDiscord plugin to display in-app notifications that focuses on simplicity and efficiency.
 
 ## 🚀 Features
 
