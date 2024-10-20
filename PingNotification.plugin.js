@@ -31,18 +31,25 @@ module.exports = class PingNotification {
             if (response.ok) {
                 const remoteContent = await response.text();
                 const remoteVersion = this.getVersionFromMeta(remoteContent);
-                const hasUpdate = this.versionCompare(this.config.info.version, remoteVersion) < 0;
+                if (remoteVersion) {
+                    const hasUpdate = this.versionCompare(this.config.info.version, remoteVersion) < 0;
+                    console.log(`PingNotification: Remote version: ${remoteVersion}, Current version: ${this.config.info.version}, Has update: ${hasUpdate}`);
 
-                if (hasUpdate) {
-                    this.updateNotice = BdApi.UI.showNotice(`An update is available for ${this.config.info.name} (${remoteVersion}).`, {
-                        type: "info",
-                        buttons: [{
-                            label: "Update Now",
-                            onClick: () => this.updatePlugin(remoteContent)
-                        }],
-                        timeout: 0
-                    });
+                    if (hasUpdate) {
+                        this.updateNotice = BdApi.UI.showNotice(`An update is available for ${this.config.info.name} (${remoteVersion}).`, {
+                            type: "info",
+                            buttons: [{
+                                label: "Update Now",
+                                onClick: () => this.updatePlugin(remoteContent)
+                            }],
+                            timeout: 0
+                        });
+                    }
+                } else {
+                    console.log("PingNotification: Unable to parse remote version.");
                 }
+            } else {
+                console.log(`PingNotification: Failed to fetch update. Status: ${response.status}`);
             }
         } catch (error) {
             console.error("Failed to check for updates:", error);
@@ -50,29 +57,20 @@ module.exports = class PingNotification {
     }
 
     getVersionFromMeta(fileContent) {
-        const versionMatch = fileContent.match(/@version\s+([0-9]+\.[0-9]+\.[0-9]+)/i);
+        const versionMatch = fileContent.match(/@version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i);
         return versionMatch ? versionMatch[1] : null;
     }
 
     versionCompare(v1, v2) {
+        if (!v1 || !v2) return 0;
         const v1parts = v1.split('.').map(Number);
         const v2parts = v2.split('.').map(Number);
 
-        for (let i = 0; i < v1parts.length; ++i) {
-            if (v2parts.length === i) {
-                return 1;
-            }
-            if (v1parts[i] === v2parts[i]) {
-                continue;
-            }
-            if (v1parts[i] > v2parts[i]) {
-                return 1;
-            }
-            return -1;
-        }
-
-        if (v1parts.length != v2parts.length) {
-            return -1;
+        for (let i = 0; i < Math.max(v1parts.length, v2parts.length); ++i) {
+            if (v1parts[i] === undefined) return -1;
+            if (v2parts[i] === undefined) return 1;
+            if (v1parts[i] > v2parts[i]) return 1;
+            if (v1parts[i] < v2parts[i]) return -1;
         }
 
         return 0;
@@ -167,7 +165,7 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.0",
+                version: "5.1",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
