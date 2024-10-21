@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 6.0
+ * @version 6.0.1
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -23,79 +23,6 @@ const GuildMemberStore = Webpack.getModule(m => m.getMember);
 const ColorConverter = Webpack.getModule(m => m.int2hex);
 
 module.exports = class PingNotification {
-
-
-    async checkForUpdates() {
-        try {
-            const response = await fetch(this.config.info.github_raw);
-            if (response.ok) {
-                const remoteContent = await response.text();
-                const remoteVersion = this.getVersionFromMeta(remoteContent);
-                if (remoteVersion) {
-                    const hasUpdate = this.versionCompare(this.config.info.version, remoteVersion) < 0;
-                    console.log(`PingNotification: Remote version: ${remoteVersion}, Current version: ${this.config.info.version}, Has update: ${hasUpdate}`);
-
-                    if (hasUpdate) {
-                        this.updateNotice = BdApi.UI.showNotice(`An update is available for ${this.config.info.name} (${remoteVersion}).`, {
-                            type: "info",
-                            buttons: [{
-                                label: "Update Now",
-                                onClick: () => this.updatePlugin(remoteContent)
-                            }],
-                            timeout: 0
-                        });
-                    }
-                } else {
-                    console.log("PingNotification: Unable to parse remote version.");
-                }
-            } else {
-                console.log(`PingNotification: Failed to fetch update. Status: ${response.status}`);
-            }
-        } catch (error) {
-            console.error("Failed to check for updates:", error);
-        }
-    }
-
-    getVersionFromMeta(fileContent) {
-        const versionMatch = fileContent.match(/@version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i);
-        return versionMatch ? versionMatch[1] : null;
-    }
-
-    versionCompare(v1, v2) {
-        if (!v1 || !v2) return 0;
-        const v1parts = v1.split('.').map(Number);
-        const v2parts = v2.split('.').map(Number);
-
-        for (let i = 0; i < Math.max(v1parts.length, v2parts.length); ++i) {
-            if (v1parts[i] === undefined) return -1;
-            if (v2parts[i] === undefined) return 1;
-            if (v1parts[i] > v2parts[i]) return 1;
-            if (v1parts[i] < v2parts[i]) return -1;
-        }
-
-        return 0;
-    }
-
-    async updatePlugin(remoteContent) {
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const pluginPath = path.join(BdApi.Plugins.folder, `${this.config.info.name}.plugin.js`);
-
-            fs.writeFileSync(pluginPath, remoteContent);
-
-            if (this.updateNotice) {
-                this.updateNotice();
-                this.updateNotice = null;
-            }
-
-            BdApi.UI.showToast(`${this.config.info.name} updated successfully.`, {type: "success"});
-
-        } catch (error) {
-            console.error("Failed to update plugin:", error);
-            BdApi.UI.showToast(`Failed to update ${this.config.info.name}.`, {type: "error"});
-        }
-    }
 
     showChangelog() {
         try {
@@ -165,12 +92,18 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.0",
+                version: "6.0.1",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
+                {
+                    title: "What's New in v6.0.1",
+                    items: [
+                        "* Removed auto-update logic as it is no longer allowed.",
+                    ]
+                },
                 {
                     title: "What's New in v6.0",
                     items: [
@@ -211,311 +144,302 @@ module.exports = class PingNotification {
                 showNicknames: false
             };
             this.activeNotifications = [];
-            this.updateNotice = null;
-        }
 
-        getName() { return this.config.info.name; }
-        getAuthor() { return this.config.info.authors.map(a => a.name).join(", "); }
-        getDescription() { return this.config.info.description; }
-        getVersion() { return this.config.info.version; }
-
-        start() {
-            this.loadSettings();
-            this.patchDispatcher();
-            BdApi.injectCSS("PingNotificationStyles", this.css);
-            
-            const lastVersion = BdApi.getData("PingNotification", "lastVersion");
-            const currentVersion = this.getVersion();
-            
-            console.log(`PingNotification: Last version: ${lastVersion}, Current version: ${currentVersion}`);
-            
-            if (lastVersion !== currentVersion) {
-                console.log("PingNotification: Showing changelog");
-                this.showChangelog();
-                BdApi.setData("PingNotification", "lastVersion", currentVersion);
-            }
-            
-            console.log("PingNotification started");
-            this.checkForUpdates();
-        }
-
-        stop() {
-            BdApi.Patcher.unpatchAll("PingNotification");
-            this.removeAllNotifications();
-            BdApi.clearCSS("PingNotificationStyles");
-            console.log("PingNotification stopped");
-
-            if (this.updateNotice) {
-                this.updateNotice();
-                this.updateNotice = null;
-            }
-        }
-
-        loadSettings() {
-            this.settings = { ...this.defaultSettings, ...BdApi.Data.load("PingNotification", "settings") };
-            console.log("Settings loaded:", this.settings);
-        }
-
-        saveSettings() {
-            BdApi.Data.save("PingNotification", "settings", this.settings);
-            console.log("Settings saved:", this.settings);
-        }
-
-        patchDispatcher() {
-            BdApi.Patcher.after("PingNotification", BdApi.findModuleByProps("dispatch"), "dispatch", (_, [event]) => {
-                if (event.type === "MESSAGE_CREATE") {
-                    this.onMessageReceived(event.message);
-                }
-            });
-        }
-
-        onMessageReceived(message) {
-            const channel = ChannelStore.getChannel(message.channel_id);
-            const currentUser = UserStore.getCurrentUser();
-
-            if (!channel || message.author.id === currentUser.id) return;
-
-            if (this.shouldNotify(message, channel)) {
-                console.log("Showing notification for message:", message);
-                this.showNotification(message, channel);
-            }
-        }
-
-        shouldNotify(message, channel) {
-            const currentUser = UserStore.getCurrentUser();
-            
-            if (!this.settings.allowNotificationsInCurrentChannel && channel.id === SelectedChannelStore.getChannelId()) {
-                return false;
-            }
-
-            if (message.flags && (message.flags & 64) === 64) {
-                return false;
-            }
-
-            const isMention = message.mentions.some(mention => mention.id === currentUser.id) || message.mention_everyone;
-            const isUserIgnored = this.settings.ignoredUsers.includes(message.author.id);
-            const isChannelIgnored = this.settings.ignoredChannels.includes(channel.id);
-            const isGuildAllowed = this.settings.allowedGuilds[channel.guild_id] || false;
-
-            if (message.mention_roles.length > 0) {
-                const guildMember = GuildMemberStore.getMember(channel.guild_id, currentUser.id);
-                if (guildMember && guildMember.roles) {
-                    const isRoleMentioned = message.mention_roles.some(roleId => guildMember.roles.includes(roleId));
-                    if (isRoleMentioned) return true;
-                }
-            }
-
-            if (!channel.guild_id) return !isUserIgnored;
-
-            if (this.settings.isBlacklistMode) {
-                return (isMention || isGuildAllowed) && !isUserIgnored && !isChannelIgnored;
-            } else {
-                return isMention || isUserIgnored || isChannelIgnored || isGuildAllowed;
-            }
-        }
-
+        this.loadSettings();
         
+        const lastVersion = BdApi.getData('PingNotification', 'lastVersion');
+        if (lastVersion !== this.config.info.version) {
+            this.showChangelog();
+            BdApi.setData('PingNotification', 'lastVersion', this.config.info.version);
+        }
+    }
 
-        showNotification(message, channel) {
-            console.log("Creating notification element");
-            const notificationElement = document.createElement('div');
-            notificationElement.className = 'ping-notification glow';
-            notificationElement.creationTime = Date.now();
-            document.body.appendChild(notificationElement);
+    getName() { return this.config.info.name; }
+    getAuthor() { return this.config.info.authors.map(a => a.name).join(", "); }
+    getDescription() { return this.config.info.description; }
+    getVersion() { return this.config.info.version; }
 
-            ReactDOM.render(
-                React.createElement(NotificationComponent, {
-                    message: message,
-                    channel: channel,
-                    settings: this.settings,
-                    onClose: () => this.removeNotification(notificationElement),
-                    onClick: () => {
-                        this.onNotificationClick(channel, message);
-                        this.removeNotification(notificationElement);
-                    },
-                    onImageLoad: () => {
-                        this.adjustNotificationPositions();
-                    },
-                    onSwipe: (direction) => {
-                        const isRightSwipe = direction === 'right';
-                        const isLeftSwipe = direction === 'left';
-                        const isRightLocation = this.settings.popupLocation.endsWith("Right");
-                        const isLeftLocation = this.settings.popupLocation.endsWith("Left");
+    start() {
+        this.loadSettings();
+        this.patchDispatcher();
+        BdApi.injectCSS("PingNotificationStyles", this.css);
 
-                        if ((isRightSwipe && isRightLocation) || (isLeftSwipe && isLeftLocation)) {
-                            this.removeNotification(notificationElement);
-                        }
-                    }
-                }),
-                notificationElement
-            );
+        console.log("PingNotification started");
+    }
+    
 
-            this.activeNotifications.push(notificationElement);
-            this.adjustNotificationPositions();
+    stop() {
+        BdApi.Patcher.unpatchAll("PingNotification");
+        this.removeAllNotifications();
+        BdApi.clearCSS("PingNotificationStyles");
+        console.log("PingNotification stopped");
+    }
 
-            return notificationElement;
+    loadSettings() {
+        this.settings = { ...this.defaultSettings, ...BdApi.Data.load("PingNotification", "settings") };
+        console.log("Settings loaded:", this.settings);
+    }
+
+    saveSettings() {
+        BdApi.Data.save("PingNotification", "settings", this.settings);
+        console.log("Settings saved:", this.settings);
+    }
+
+    patchDispatcher() {
+        BdApi.Patcher.after("PingNotification", BdApi.findModuleByProps("dispatch"), "dispatch", (_, [event]) => {
+            if (event.type === "MESSAGE_CREATE") {
+                this.onMessageReceived(event.message);
+            }
+        });
+    }
+
+    onMessageReceived(message) {
+        const channel = ChannelStore.getChannel(message.channel_id);
+        const currentUser = UserStore.getCurrentUser();
+
+        if (!channel || message.author.id === currentUser.id) return;
+
+        if (this.shouldNotify(message, channel)) {
+            console.log("Showing notification for message:", message);
+            this.showNotification(message, channel);
+        }
+    }
+
+    shouldNotify(message, channel) {
+        const currentUser = UserStore.getCurrentUser();
+        
+        if (!this.settings.allowNotificationsInCurrentChannel && channel.id === SelectedChannelStore.getChannelId()) {
+            return false;
         }
 
-        removeNotification(notificationElement) {
-            if (document.body.contains(notificationElement)) {
-                ReactDOM.unmountComponentAtNode(notificationElement);
-                document.body.removeChild(notificationElement);
-                this.activeNotifications = this.activeNotifications.filter(n => n !== notificationElement);
+        if (message.flags && (message.flags & 64) === 64) {
+            return false;
+        }
+
+        const isMention = message.mentions.some(mention => mention.id === currentUser.id) || message.mention_everyone;
+        const isUserIgnored = this.settings.ignoredUsers.includes(message.author.id);
+        const isChannelIgnored = this.settings.ignoredChannels.includes(channel.id);
+        const isGuildAllowed = this.settings.allowedGuilds[channel.guild_id] || false;
+
+        if (message.mention_roles.length > 0) {
+            const guildMember = GuildMemberStore.getMember(channel.guild_id, currentUser.id);
+            if (guildMember && guildMember.roles) {
+                const isRoleMentioned = message.mention_roles.some(roleId => guildMember.roles.includes(roleId));
+                if (isRoleMentioned) return true;
+            }
+        }
+
+        if (!channel.guild_id) return !isUserIgnored;
+
+        if (this.settings.isBlacklistMode) {
+            return (isMention || isGuildAllowed) && !isUserIgnored && !isChannelIgnored;
+        } else {
+            return isMention || isUserIgnored || isChannelIgnored || isGuildAllowed;
+        }
+    }
+
+    
+
+    showNotification(message, channel) {
+        console.log("Creating notification element");
+        const notificationElement = document.createElement('div');
+        notificationElement.className = 'ping-notification glow';
+        notificationElement.creationTime = Date.now();
+        document.body.appendChild(notificationElement);
+
+        ReactDOM.render(
+            React.createElement(NotificationComponent, {
+                message: message,
+                channel: channel,
+                settings: this.settings,
+                onClose: () => this.removeNotification(notificationElement),
+                onClick: () => {
+                    this.onNotificationClick(channel, message);
+                    this.removeNotification(notificationElement);
+                },
+                onImageLoad: () => {
+                    this.adjustNotificationPositions();
+                },
+                onSwipe: (direction) => {
+                    const isRightSwipe = direction === 'right';
+                    const isLeftSwipe = direction === 'left';
+                    const isRightLocation = this.settings.popupLocation.endsWith("Right");
+                    const isLeftLocation = this.settings.popupLocation.endsWith("Left");
+
+                    if ((isRightSwipe && isRightLocation) || (isLeftSwipe && isLeftLocation)) {
+                        this.removeNotification(notificationElement);
+                    }
+                }
+            }),
+            notificationElement
+        );
+
+        this.activeNotifications.push(notificationElement);
+        this.adjustNotificationPositions();
+
+        return notificationElement;
+    }
+
+    removeNotification(notificationElement) {
+        if (document.body.contains(notificationElement)) {
+            ReactDOM.unmountComponentAtNode(notificationElement);
+            document.body.removeChild(notificationElement);
+            this.activeNotifications = this.activeNotifications.filter(n => n !== notificationElement);
+            this.adjustNotificationPositions();
+        }
+    }
+
+    removeAllNotifications() {
+        this.activeNotifications.forEach(notification => {
+            if (document.body.contains(notification)) {
+                ReactDOM.unmountComponentAtNode(notification);
+                document.body.removeChild(notification);
+            }
+        });
+        this.activeNotifications = [];
+    }
+
+    adjustNotificationPositions() {
+        const { popupLocation } = this.settings;
+        let offset = 20;
+        const isTop = popupLocation.startsWith("top");
+        const isLeft = popupLocation.endsWith("Left");
+
+        const sortedNotifications = [...this.activeNotifications].sort((a, b) => {
+            return b.creationTime - a.creationTime;
+        });
+
+        sortedNotifications.forEach((notification) => {
+            const height = notification.offsetHeight;
+            notification.style.transition = 'all 0.3s ease-in-out';
+            notification.style.position = 'fixed';
+
+            if (isTop) {
+                notification.style.top = `${offset}px`;
+                notification.style.bottom = 'auto';
+            } else {
+                notification.style.bottom = `${offset}px`;
+                notification.style.top = 'auto';
+            }
+
+            if (isLeft) {
+                notification.style.left = '20px';
+                notification.style.right = 'auto';
+            } else {
+                notification.style.right = '20px';
+                notification.style.left = 'auto';
+            }
+
+            offset += height + 10;
+        });
+    }
+
+    onNotificationClick(channel, message) {
+        transitionTo(`/channels/${channel.guild_id || "@me"}/${channel.id}/${message.id}`);
+    }
+
+    getSettingsPanel() {
+        return BdApi.React.createElement(SettingsPanel, {
+            settings: this.settings,
+            onSettingsChange: (newSettings) => {
+                this.settings = newSettings;
+                this.saveSettings();
                 this.adjustNotificationPositions();
             }
+        });
+    }
+
+    css = `
+        .ping-notification {
+            position: fixed;
+            width: 350px;
+            background-color: rgba(255, 255, 255, 0.5);
+            color: var(--text-normal);
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            overflow: hidden;
+            backdrop-filter: blur(7px);
+            animation: notificationPop 0.5s ease-out;
         }
-
-        removeAllNotifications() {
-            this.activeNotifications.forEach(notification => {
-                if (document.body.contains(notification)) {
-                    ReactDOM.unmountComponentAtNode(notification);
-                    document.body.removeChild(notification);
-                }
-            });
-            this.activeNotifications = [];
+        .ping-notification.glow {
+            animation: notificationPop 0.5s ease-out, glowPulse 2s ease-out;
         }
-
-        adjustNotificationPositions() {
-            const { popupLocation } = this.settings;
-            let offset = 20;
-            const isTop = popupLocation.startsWith("top");
-            const isLeft = popupLocation.endsWith("Left");
-
-            const sortedNotifications = [...this.activeNotifications].sort((a, b) => {
-                return b.creationTime - a.creationTime;
-            });
-
-            sortedNotifications.forEach((notification) => {
-                const height = notification.offsetHeight;
-                notification.style.transition = 'all 0.3s ease-in-out';
-                notification.style.position = 'fixed';
-
-                if (isTop) {
-                    notification.style.top = `${offset}px`;
-                    notification.style.bottom = 'auto';
-                } else {
-                    notification.style.bottom = `${offset}px`;
-                    notification.style.top = 'auto';
-                }
-
-                if (isLeft) {
-                    notification.style.left = '20px';
-                    notification.style.right = 'auto';
-                } else {
-                    notification.style.right = '20px';
-                    notification.style.left = 'auto';
-                }
-
-                offset += height + 10;
-            });
+        .ping-notification-content {
+            padding: 12px;
+            cursor: pointer;
+            position: relative;
+            color: var(--text-normal);
         }
-
-        onNotificationClick(channel, message) {
-            transitionTo(`/channels/${channel.guild_id || "@me"}/${channel.id}/${message.id}`);
+        .ping-notification-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
         }
-
-        getSettingsPanel() {
-            return BdApi.React.createElement(SettingsPanel, {
-                settings: this.settings,
-                onSettingsChange: (newSettings) => {
-                    this.settings = newSettings;
-                    this.saveSettings();
-                    this.adjustNotificationPositions();
-                }
-            });
+        .ping-notification-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 8px;
         }
-
-        css = `
-            .ping-notification {
-                position: fixed;
-                width: 350px;
-                background-color: rgba(255, 255, 255, 0.5);
-                color: var(--text-normal);
-                border-radius: 8px;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-                z-index: 9999;
-                overflow: hidden;
-                backdrop-filter: blur(7px);
-                animation: notificationPop 0.5s ease-out;
-            }
-            .ping-notification.glow {
-                animation: notificationPop 0.5s ease-out, glowPulse 2s ease-out;
-            }
-            .ping-notification-content {
-                padding: 12px;
-                cursor: pointer;
-                position: relative;
-                color: var(--text-normal);
-            }
-            .ping-notification-header {
-                display: flex;
-                align-items: center;
-                margin-bottom: 8px;
-            }
-            .ping-notification-avatar {
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-                margin-right: 8px;
-            }
-            .ping-notification-title {
-                flex-grow: 1;
-                font-weight: bold;
-                font-size: 14px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-            .ping-notification-close {
-                cursor: pointer;
-                font-size: 18px;
-                padding: 0 4px;
-            }
+        .ping-notification-title {
+            flex-grow: 1;
+            font-weight: bold;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ping-notification-close {
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 4px;
+        }
                 
-            .ping-notification-video-attachment {
-                position: relative;
-                display: inline-block;
-                align-self: center;
-            }
-            .ping-notification-video-play-button {
-                opacity: 0.8;
-                transition: opacity 0.2s ease;
-            }
-            .ping-notification-video-attachment:hover .ping-notification-video-play-button {
-                opacity: 1;
-            }
-            .ping-notification-body {
-                font-size: 15px;
-                margin-bottom: 8px;
-                word-break: break-word;
-            }
-            .ping-notification-attachment {
-                max-width: 100%;
-                max-height: 150px;
-                border-radius: 4px;
-                margin-top: 8px;
-            }
-            .ping-notification-content.privacy-mode .ping-notification-body,
-            .ping-notification-content.privacy-mode .ping-notification-attachment {
-                filter: blur(15px);
-                transition: filter 0.3s ease;
-            }
-            .ping-notification-content.privacy-mode:hover .ping-notification-body,
-            .ping-notification-content.privacy-mode:hover .ping-notification-attachment {
-                filter: blur(0);
-            }
-            @keyframes notificationPop {
-                0% { transform: scale(0.9); opacity: 0; }
-                50% { transform: scale(1.05); }
-                100% { transform: scale(1); opacity: 1; }
-            }
-            @keyframes glowPulse {
-                0% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }
-                50% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
-                100% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }
-            }
-        `;
+        .ping-notification-video-attachment {
+            position: relative;
+            display: inline-block;
+            align-self: center;
         }
+        .ping-notification-video-play-button {
+            opacity: 0.8;
+            transition: opacity 0.2s ease;
+        }
+        .ping-notification-video-attachment:hover .ping-notification-video-play-button {
+            opacity: 1;
+        }
+        .ping-notification-body {
+            font-size: 15px;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+        .ping-notification-attachment {
+            max-width: 100%;
+            max-height: 150px;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+        .ping-notification-content.privacy-mode .ping-notification-body,
+        .ping-notification-content.privacy-mode .ping-notification-attachment {
+            filter: blur(15px);
+            transition: filter 0.3s ease;
+        }
+        .ping-notification-content.privacy-mode:hover .ping-notification-body,
+        .ping-notification-content.privacy-mode:hover .ping-notification-attachment {
+            filter: blur(0);
+        }
+        @keyframes notificationPop {
+            0% { transform: scale(0.9); opacity: 0; }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes glowPulse {
+            0% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
+            100% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }
+        }
+    `;
+    }
 
     function NotificationComponent({ message, channel, settings, onClose, onClick, onImageLoad, onSwipe }) {
         const [remainingTime, setRemainingTime] = React.useState(settings.duration);
@@ -1349,3 +1273,4 @@ module.exports = class PingNotification {
     function getRoles(guild) {
         return guild?.roles ?? BdApi.findModuleByProps("getGuild").getGuild(guild?.id)?.roles;
     }
+
