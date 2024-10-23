@@ -30,6 +30,12 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 ## 📦 Latest Updates
 
 <details open>
+<summary><strong>v6.1</strong></summary>
+
+- * Added logic to handle forwarded messages gracefully.
+</details>
+
+<details>
 <summary><strong>v6.0</strong></summary>
 
 - **Major change:** Moved away from ZeresPluginLibrary to use built-in BdApi.
