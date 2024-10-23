@@ -63,7 +63,6 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 
 ## 🐛 Known Issues
 
-- Mentions of your username will be the role color of the server you're currently in, not the server the message was sent in. *(help wanted: I'm not sure how to fix this one)*
 - Stickers do not display in the notification window.
 
 If you encounter any problems, please [open an issue](https://github.com/DaddyBoard/PingNotification/issues).
