@@ -1,10 +1,12 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 6.0.1
+ * @version 6.1
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
+ * @updateUrl https://github.com/DaddyBoard/PingNotification/blob/main/PingNotification.plugin.js
+ * @invite ggNWGDV7e2
  */
 
 const { React, Webpack, Patcher, Data, Dispatcher, ReactDOM } = BdApi;
@@ -46,7 +48,18 @@ module.exports = class PingNotification {
                                     marginBottom: '10px',
                                     paddingLeft: '0px'
                                 } 
-                            }, change.title),
+                            }, 
+                                index === 0 ? [
+                                    React.createElement('span', {
+                                        style: {
+                                            color: 'red',
+                                            fontWeight: 'bold',
+                                            marginRight: '10px'
+                                        }
+                                    }, "NEW!"),
+                                    change.title
+                                ] : change.title
+                            ),
                             React.createElement('div', { 
                                 style: { 
                                     paddingLeft: '20px'
@@ -92,38 +105,38 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.0.1",
+                version: "6.1",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
                 {
-                    title: "What's New in v6.0.1",
+                    title: "v6.1",
+                    items: [
+                        "* Added logic to handle forwarded messages gracefully.",
+                    ]
+                },
+                {
+                    title: "v6.0.1",
                     items: [
                         "* Removed auto-update logic as it is no longer allowed.",
                     ]
                 },
                 {
-                    title: "What's New in v6.0",
+                    title: "v6.0",
                     items: [
                         "* **Major change:** Moved away from ZeresPluginLibrary to use built-in BdApi.",
                         "* General code improvements and optimizations."
                     ]
                 },
                 {
-                    title: "New in v5.4.1",
+                    title: "v5.4.1",
                     items: [
                         "* You can now swipe the notification to the left or right to close it, depending on notification location.",
                         "* Added a new setting to show nicknames instead of usernames from the server the message was sent in. *Disabled by default.*",
                         "* Added a new setting to show senders color based on their role from the server the message was sent in. *Disabled by default.*",
                         "* General code improvements and optimizations."
-                    ]
-                },
-                {
-                    title: "Known Issues",
-                    items: [
-                        "Mentions of your username will be the role color of the server you're currently in, not the server the message was sent in. *(help wanted: I'm not sure how to fix this one)*"
                     ]
                 }
             ],
@@ -199,9 +212,11 @@ module.exports = class PingNotification {
 
         if (!channel || message.author.id === currentUser.id) return;
 
+        const isForwardedMessage = (message.flags & 16384) === 16384;
+
         if (this.shouldNotify(message, channel)) {
             console.log("Showing notification for message:", message);
-            this.showNotification(message, channel);
+            this.showNotification(message, channel, isForwardedMessage);
         }
     }
 
@@ -240,7 +255,7 @@ module.exports = class PingNotification {
 
     
 
-    showNotification(message, channel) {
+    showNotification(message, channel, isForwardedMessage) {
         console.log("Creating notification element");
         const notificationElement = document.createElement('div');
         notificationElement.className = 'ping-notification glow';
@@ -252,6 +267,7 @@ module.exports = class PingNotification {
                 message: message,
                 channel: channel,
                 settings: this.settings,
+                isForwardedMessage: isForwardedMessage,
                 onClose: () => this.removeNotification(notificationElement),
                 onClick: () => {
                     this.onNotificationClick(channel, message);
@@ -441,7 +457,7 @@ module.exports = class PingNotification {
     `;
     }
 
-    function NotificationComponent({ message, channel, settings, onClose, onClick, onImageLoad, onSwipe }) {
+    function NotificationComponent({ message, channel, settings, isForwardedMessage, onClose, onClick, onImageLoad, onSwipe }) {
         const [remainingTime, setRemainingTime] = React.useState(settings.duration);
         const [isPaused, setIsPaused] = React.useState(false);
         const [isGlowing, setIsGlowing] = React.useState(true);
@@ -631,17 +647,41 @@ module.exports = class PingNotification {
         };
 
         const getMessageContent = () => {
-            let content = message.content;
+            let content = '';
             let embedContent = '';
 
-            if (message.embeds && message.embeds.length > 0) {
-                embedContent = message.embeds.map(embed => getEmbedContent(embed)).join('\n\n');
-                if (embedContent) {
-                    embedContent = `\n\n\n${embedContent}`;
+            console.log("Full message object:", JSON.stringify(message, null, 2));
+
+            if (isForwardedMessage) {
+                console.log("Handling forwarded message");
+                if (message.message_snapshots && message.message_snapshots.length > 0) {
+                    const snapshot = message.message_snapshots[0];
+                    console.log("Snapshot:", JSON.stringify(snapshot, null, 2));
+                    content = snapshot.message?.content || '';
+                    console.log("Extracted content:", content);
+                    
+                    if (snapshot.message?.embeds && snapshot.message.embeds.length > 0) {
+                        embedContent = snapshot.message.embeds.map(embed => getEmbedContent(embed)).join('\n\n');
+                        console.log("Extracted embed content:", embedContent);
+                    }
+                } else {
+                    console.log("No message_snapshots found");
+                    content = 'Unable to retrieve forwarded message content';
+                }
+            } else {
+                content = message.content || '';
+                if (message.embeds && message.embeds.length > 0) {
+                    embedContent = message.embeds.map(embed => getEmbedContent(embed)).join('\n\n');
                 }
             }
 
-            return truncateMessage(content, embedContent) + embedContent;
+            if (embedContent) {
+                embedContent = `\n\n${embedContent}`;
+            }
+
+            const finalContent = truncateMessage(content, embedContent) + embedContent;
+            console.log("Final content to be displayed:", finalContent);
+            return finalContent;
         };
 
         const getProgressColor = () => {
@@ -713,6 +753,28 @@ module.exports = class PingNotification {
             document.addEventListener('touchend', handleEnd);
         };
 
+        const ForwardedIcon = React.memo(() => (
+            React.createElement('svg', {
+                className: "headerIcon_f66b8e",
+                'aria-hidden': "true",
+                role: "img",
+                xmlns: "http://www.w3.org/2000/svg",
+                width: "16",
+                height: "16",
+                fill: "none",
+                viewBox: "0 0 24 24",
+                style: {
+                    marginRight: '5px',
+                    verticalAlign: 'middle'
+                }
+            },
+                React.createElement('path', {
+                    fill: "var(--text-low-contrast)",
+                    d: "M21.7 7.3a1 1 0 0 1 0 1.4l-5 5a1 1 0 0 1-1.4-1.4L18.58 9H13a7 7 0 0 0-7 7v4a1 1 0 1 1-2 0v-4a9 9 0 0 1 9-9h5.59l-3.3-3.3a1 1 0 0 1 1.42-1.4l5 5Z"
+                })
+            )
+        ));
+
         return React.createElement('div', {
             className: `ping-notification-content ${isGlowing ? 'glow' : ''} ${settings.privacyMode ? 'privacy-mode' : ''}`,
             onClick: onClick,
@@ -748,8 +810,14 @@ module.exports = class PingNotification {
             ),
             React.createElement('div', { 
                 className: "ping-notification-body",
-                style: { flex: 1, marginBottom: '5px', color: mentionedRoleColor || 'inherit' }
+                style: { 
+                    flex: 1, 
+                    marginBottom: '5px', 
+                    color: mentionedRoleColor || 'inherit',
+                    fontStyle: isForwardedMessage ? 'italic' : 'normal'
+                }
             },
+                isForwardedMessage && React.createElement(ForwardedIcon),
                 parse(getMessageContent(), true, { channelId: channel.id })
             ),
             message.attachments && message.attachments.length > 0 && 
