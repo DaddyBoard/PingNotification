@@ -32,7 +32,7 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 <details open>
 <summary><strong>v6.1</strong></summary>
 
-- * Added logic to handle forwarded messages gracefully.
+- Added logic to handle forwarded messages gracefully.
 </details>
 
 <details>
