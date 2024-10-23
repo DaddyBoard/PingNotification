@@ -650,22 +650,15 @@ module.exports = class PingNotification {
             let content = '';
             let embedContent = '';
 
-            console.log("Full message object:", JSON.stringify(message, null, 2));
-
             if (isForwardedMessage) {
-                console.log("Handling forwarded message");
                 if (message.message_snapshots && message.message_snapshots.length > 0) {
                     const snapshot = message.message_snapshots[0];
-                    console.log("Snapshot:", JSON.stringify(snapshot, null, 2));
                     content = snapshot.message?.content || '';
-                    console.log("Extracted content:", content);
                     
                     if (snapshot.message?.embeds && snapshot.message.embeds.length > 0) {
                         embedContent = snapshot.message.embeds.map(embed => getEmbedContent(embed)).join('\n\n');
-                        console.log("Extracted embed content:", embedContent);
                     }
                 } else {
-                    console.log("No message_snapshots found");
                     content = 'Unable to retrieve forwarded message content';
                 }
             } else {
@@ -680,7 +673,6 @@ module.exports = class PingNotification {
             }
 
             const finalContent = truncateMessage(content, embedContent) + embedContent;
-            console.log("Final content to be displayed:", finalContent);
             return finalContent;
         };
 
