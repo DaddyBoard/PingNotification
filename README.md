@@ -30,6 +30,20 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 ## 📦 Latest Updates
 
 <details open>
+<summary><strong>v6.2</strong></summary>
+
+- Added context menu items for channels, guilds, threads and users for easy addition/removal from ignored lists
+- Completely rewritten settings menus with a new design
+- Overhauled popup theme for a more sleek and modern look with better readability
+- Completely removed the blacklist/whitelist system. Default behavior is now:
+  - **Whitelist** servers you want all notifications for
+  - **Ignore** specific channels
+  - **Ignore** specific users
+  
+**Note:** If you experience issues, fully close Discord and delete 'pingnotification.**config**.json' from your BetterDiscord/plugins folder. Restart Discord to reset the plugin to default settings. You'll need to reconfigure your preferences.
+</details>
+
+<details>
 <summary><strong>v6.1</strong></summary>
 
 - Added logic to handle forwarded messages gracefully.
