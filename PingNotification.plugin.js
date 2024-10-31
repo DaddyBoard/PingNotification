@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 6.2
+ * @version 6.3
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -24,6 +24,7 @@ const GuildChannelStore = Webpack.getStore("GuildChannelStore");
 const transitionTo = Webpack.getByStrings(["transitionTo - Transitioning to"],{searchExports:true});
 const MessageParserModule = Webpack.getModule(m => m.defaultRules && m.parse);
 const parse = MessageParserModule?.parse;
+const defaultRules = MessageParserModule?.defaultRules;
 const GuildMemberStore = Webpack.getModule(m => m.getMember);
 const ColorConverter = Webpack.getModule(m => m.int2hex);
 const getGuildIconURL = BdApi.Webpack.getModule(m => m.getGuildIconURL)?.getGuildIconURL;
@@ -109,14 +110,26 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.2",
+                version: "6.3",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
                 {
-                    title: "v6.2 MEGA UPDATE",
+                    title: "6.3 HUGE UPDATE",
+                    items: [
+                        "* Added proper support for spoilered content (text, images and videos) in notifications",
+                        "* Privacy mode rework, is now clearer and more intuitive",
+                        "* Now displays Group DMs as 'Group Chat • {Name}'",
+                        "* Added support for threads in automatic mode",
+                        "* Now closes all notifications from the same channel/DM when one is clicked",
+                        "* Added new setting to color user mentions based on their role color",
+                        "* Added new 'automatic' mode that follows Discord's notification settings directly"
+                    ]
+                },
+                {
+                    title: "6.2",
                     items: [
                         "* Added context menu items for channels, guilds, threads and users so you can easily add/remove them from the ignored lists.",
                         "* Completely rewritten all of the settings menus with a new design.",
@@ -167,8 +180,10 @@ module.exports = class PingNotification {
                 allowNotificationsInCurrentChannel: false,
                 privacyMode: false,
                 coloredUsernames: true,
-                showNicknames: false,
-                ignoredThreads: []
+                showNicknames: true,
+                ignoredThreads: [],
+                mode: "automatic",
+                colorMentions: true,
             };
             this.activeNotifications = [];
 
@@ -191,7 +206,9 @@ module.exports = class PingNotification {
     start() {
         this.loadSettings();
         this.patchDispatcher();
-        this.patchContextMenus();
+        if (this.settings.mode === "manual") {
+            this.patchContextMenus();
+        }
         BdApi.injectCSS("PingNotificationStyles", this.css);
 
         console.log("PingNotification started");
@@ -299,9 +316,34 @@ module.exports = class PingNotification {
         }
         .ping-notification-content.privacy-mode .ping-notification-body,
         .ping-notification-content.privacy-mode .ping-notification-attachment {
-            filter: blur(15px);
+            filter: blur(20px);
             transition: filter 0.3s ease;
+            position: relative;
         }
+
+        .ping-notification-hover-text {
+            position: absolute;
+            top: calc(50% + 20px);
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-normal);
+            font-size: 14px;
+            font-weight: 500;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            white-space: nowrap;
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .ping-notification-content.privacy-mode:hover .ping-notification-hover-text {
+            opacity: 0;
+        }
+
         .ping-notification-content.privacy-mode:hover .ping-notification-body,
         .ping-notification-content.privacy-mode:hover .ping-notification-attachment {
             filter: blur(0);
@@ -453,6 +495,31 @@ module.exports = class PingNotification {
             padding: 5px 10px;
             font-size: 14px;
         }
+
+
+        .ping-notification .spoilerContent_aa9639,
+        .ping-notification .spoilerMarkdownContent_aa9639 {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+            transition: background-color 0.2s ease;
+        }
+
+        .ping-notification .spoilerContent_aa9639:hover,
+        .ping-notification .spoilerMarkdownContent_aa9639:hover {
+            background-color: rgba(255, 255, 255, 0.25);
+        }
+
+        .ping-notification-content.privacy-mode .ping-notification-body,
+        .ping-notification-content.privacy-mode .ping-notification-attachment-wrapper {
+            filter: blur(20px);
+            transition: filter 0.3s ease;
+            position: relative;
+        }
+
+        .ping-notification-content.privacy-mode:hover .ping-notification-body,
+        .ping-notification-content.privacy-mode:hover .ping-notification-attachment-wrapper {
+            filter: blur(0);
+        }
     `;
 
     patchDispatcher() {
@@ -468,6 +535,7 @@ module.exports = class PingNotification {
         this.contextMenuPatches.push(BdApi.ContextMenu.patch("guild-context", this.addGuildContextMenuItems.bind(this)));
         this.contextMenuPatches.push(BdApi.ContextMenu.patch("channel-context", this.addChannelContextMenuItems.bind(this)));
         this.contextMenuPatches.push(BdApi.ContextMenu.patch("thread-context", this.addChannelContextMenuItems.bind(this)));
+        this.contextMenuPatches.push(BdApi.ContextMenu.patch("gdm-context", this.addChannelContextMenuItems.bind(this)));
     }
 
     unpatchContextMenus() {
@@ -517,6 +585,8 @@ module.exports = class PingNotification {
         returnValue.props.children.push(pingNotificationItem);
     }
 
+
+
     addChannelContextMenuItems(returnValue, props) {
         const channel = props.channel;
         if (!channel) return;
@@ -524,6 +594,7 @@ module.exports = class PingNotification {
         const channelId = channel.id;
         const isThread = channel.isThread && channel.isThread();
         const parentChannelId = channel.parent_id;
+        const isGroupDM = channel.type === 3;
 
         let isIgnored;
         if (isThread) {
@@ -532,7 +603,14 @@ module.exports = class PingNotification {
             isIgnored = this.settings.ignoredChannels.includes(channelId);
         }
 
-        const actionText = isIgnored ? `Remove ${isThread ? 'thread' : 'channel'} from ignored list` : `Add ${isThread ? 'thread' : 'channel'} to ignored list`;
+        let actionText;
+        if (isThread) {
+            actionText = isIgnored ? 'Remove thread from ignored list' : 'Add thread to ignored list';
+        } else if (isGroupDM) {
+            actionText = isIgnored ? 'Remove group chat from ignored list' : 'Add group chat to ignored list';
+        } else {
+            actionText = isIgnored ? 'Remove channel from ignored list' : 'Add channel to ignored list';
+        }
 
         const pingNotificationItem = BdApi.ContextMenu.buildItem({
             type: "submenu",
@@ -607,39 +685,78 @@ module.exports = class PingNotification {
 
     shouldNotify(message, channel) {
         const currentUser = UserStore.getCurrentUser();
-        
+        const UserGuildSettingsStore = BdApi.Webpack.getStore("UserGuildSettingsStore");
+
         if (!this.settings.allowNotificationsInCurrentChannel && channel.id === SelectedChannelStore.getChannelId()) {
             return false;
         }
 
-        if (message.flags && (message.flags & 64) === 64) {
-            return false;
-        }
+        if (message.author.id === currentUser.id) return false;
+        if (message.flags && (message.flags & 64) === 64) return false;
 
-        const isMention = message.mentions.some(mention => mention.id === currentUser.id) || message.mention_everyone;
-        const isUserIgnored = this.settings.ignoredUsers.includes(message.author.id);
-        const isChannelIgnored = this.isChannelIgnored(channel);
-        
-        const isGuildAllowed = this.settings.allowedGuilds[channel.guild_id] || false;
-
-        if (message.mention_roles.length > 0) {
-            const guildMember = GuildMemberStore.getMember(channel.guild_id, currentUser.id);
-            if (guildMember && guildMember.roles) {
-                const isRoleMentioned = message.mention_roles.some(roleId => guildMember.roles.includes(roleId));
-                if (isRoleMentioned) return true;
+        if (this.settings.mode === "automatic") {
+            if (!channel.guild_id) {
+                const isGroupDMMuted = UserGuildSettingsStore.isChannelMuted(null, channel.id);
+                const isUserBlocked = RelationshipStore.isBlocked(message.author.id);
+                return !isGroupDMMuted && !isUserBlocked;
             }
-        }
 
-        if (channel.isThread && channel.isThread()) {
-            const ignoredThread = this.settings.ignoredThreads?.find(t => t.id === channel.id);
-            if (ignoredThread) {
+            if (UserGuildSettingsStore.isGuildOrCategoryOrChannelMuted(channel.guild_id, channel.id)) {
                 return false;
             }
+
+            const channelOverride = UserGuildSettingsStore.getChannelMessageNotifications(channel.guild_id, channel.id);
+            const guildDefault = UserGuildSettingsStore.getMessageNotifications(channel.guild_id);
+
+            const finalSetting = channelOverride === 3 ? guildDefault : channelOverride;
+
+            const isDirectlyMentioned = message.mentions?.some(mention => mention.id === currentUser.id);
+            const isEveryoneMentioned = message.mention_everyone && 
+                !UserGuildSettingsStore.isSuppressEveryoneEnabled(channel.guild_id);
+
+            let isRoleMentioned = false;
+            if (message.mention_roles?.length > 0 && !UserGuildSettingsStore.isSuppressRolesEnabled(channel.guild_id)) {
+                const member = GuildMemberStore.getMember(channel.guild_id, currentUser.id);
+                if (member && member.roles) {
+                    isRoleMentioned = message.mention_roles.some(roleId => member.roles.includes(roleId));
+                }
+            }
+
+            const isMentioned = isDirectlyMentioned || isEveryoneMentioned || isRoleMentioned;
+
+            switch (finalSetting) {
+                case 0: return true;
+                case 1: return isMentioned;
+                case 2: return false;
+                default: return false;
+            }
+        } else {
+            const isMention = message.mentions.some(mention => mention.id === currentUser.id) || message.mention_everyone;
+            const isUserIgnored = this.settings.ignoredUsers.includes(message.author.id);
+            const isChannelIgnored = this.settings.ignoredChannels.includes(channel.id);
+            const isGuildAllowed = channel.guild_id ? (this.settings.allowedGuilds[channel.guild_id] || false) : true;
+
+            if (message.mention_roles.length > 0) {
+                const guildMember = GuildMemberStore.getMember(channel.guild_id, currentUser.id);
+                if (guildMember && guildMember.roles) {
+                    const isRoleMentioned = message.mention_roles.some(roleId => guildMember.roles.includes(roleId));
+                    if (isRoleMentioned) return true;
+                }
+            }
+
+            if (channel.isThread && channel.isThread()) {
+                const ignoredThread = this.settings.ignoredThreads?.find(t => t.id === channel.id);
+                if (ignoredThread) {
+                    return false;
+                }
+            }
+
+            if (!channel.guild_id) {
+                return !isUserIgnored && !isChannelIgnored;
+            }
+
+            return (isMention || isGuildAllowed) && !isUserIgnored && !isChannelIgnored;
         }
-
-        if (!channel.guild_id) return !isUserIgnored;
-
-        return (isMention || isGuildAllowed) && !isUserIgnored && !isChannelIgnored;
     }
 
     isChannelIgnored(channel) {
@@ -654,8 +771,8 @@ module.exports = class PingNotification {
             }
         }
         
-        return false;
-    }
+                    return false;
+                }
 
     
 
@@ -664,6 +781,7 @@ module.exports = class PingNotification {
         const notificationElement = document.createElement('div');
         notificationElement.className = 'ping-notification glow';
         notificationElement.creationTime = Date.now();
+        notificationElement.channelId = channel.id;
         document.body.appendChild(notificationElement);
 
         ReactDOM.render(
@@ -755,6 +873,14 @@ module.exports = class PingNotification {
     }
 
     onNotificationClick(channel, message) {
+        const notificationsToRemove = this.activeNotifications.filter(notification => 
+            notification.channelId === channel.id
+        );
+        
+        notificationsToRemove.forEach(notification => {
+            this.removeNotification(notification);
+        });
+
         transitionTo(`/channels/${channel.guild_id || "@me"}/${channel.id}/${message.id}`);
     }
 
@@ -762,6 +888,15 @@ module.exports = class PingNotification {
         return BdApi.React.createElement(SettingsPanel, {
             settings: this.settings,
             onSettingsChange: (newSettings) => {
+                if (newSettings.mode !== this.settings.mode) {
+                    if (newSettings.mode === "manual") {
+                        this.unpatchContextMenus();
+                        this.patchContextMenus();
+                    } else {
+                        this.unpatchContextMenus();
+                    }
+                }
+
                 this.settings = newSettings;
                 this.saveSettings();
                 this.adjustNotificationPositions();
@@ -799,6 +934,103 @@ module.exports = class PingNotification {
             return () => clearTimeout(glowTimer);
         }, []);
 
+        const hexToRGB = (hex) => {
+            hex = hex.replace('#', '');
+            if (hex.length === 3) {
+                hex = hex.split('').map(char => char + char).join('');
+            }
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            return [r, g, b];
+        };
+
+        React.useEffect(() => {
+            if (!settings.colorMentions) return;
+
+            const mentionElements = document.querySelectorAll('.ping-notification .mention');
+            const messageMentions = [...(message.mentions || [])];
+            const currentUser = BdApi.Webpack.getStore("UserStore").getCurrentUser();
+            
+            if (message.mentions_everyone || message.mention_everyone || 
+                message.mentions?.some(m => m.id === currentUser.id)) {
+                if (!messageMentions.find(m => m.id === currentUser.id)) {
+                    messageMentions.push(currentUser);
+                }
+            }
+
+            mentionElements.forEach((mention) => {
+                if (mention.className.includes('role') || mention.className.includes('command')) return;
+                if (mention._colorInitialized) return;
+
+                const mentionText = mention.textContent.replace('@', '');
+
+                const mentionedUser = messageMentions.find(user => [
+                    user.username === mentionText,
+                    user.globalName === mentionText,
+                    user.id === currentUser.id && mentionText === currentUser.username,
+                    user.id === currentUser.id && mentionText === currentUser.globalName
+                ].some(match => match));
+
+                if (!mentionedUser) return;
+
+                const member = BdApi.Webpack.getStore("GuildMemberStore").getMember(channel.guild_id, mentionedUser.id);
+                const color = member?.colorString;
+                mention._storedColor = color;
+                mention._colorInitialized = true;
+
+                const handleMouseEnter = () => {
+                    mention.style.setProperty(
+                        "background-color", 
+                        color ? 
+                            `rgba(${hexToRGB(color).join(", ")}, 0.3)` :
+                            'rgba(88, 101, 242, 0.3)', 
+                        "important"
+                    );
+                };
+
+                const handleMouseLeave = () => {
+                    mention.style.setProperty(
+                        "background-color", 
+                        color ? 
+                            `rgba(${hexToRGB(color).join(", ")}, 0.1)` :
+                            'rgba(88, 101, 242, 0.15)', 
+                        "important"
+                    );
+                };
+
+                if (color) {
+                    mention.style.setProperty("color", color, "important");
+                    mention.style.setProperty(
+                        "background-color", 
+                        `rgba(${hexToRGB(color).join(", ")}, 0.1)`, 
+                        "important"
+                    );
+                } else {
+                    mention.style.removeProperty("color");
+                    mention.style.removeProperty("background-color");
+                }
+
+                mention.addEventListener("mouseenter", handleMouseEnter);
+                mention.addEventListener("mouseleave", handleMouseLeave);
+
+                mention._pingNotificationHandlers = {
+                    enter: handleMouseEnter,
+                    leave: handleMouseLeave
+                };
+            });
+
+            return () => {
+                mentionElements.forEach(mention => {
+                    if (mention._pingNotificationHandlers) {
+                        mention.removeEventListener("mouseenter", mention._pingNotificationHandlers.enter);
+                        mention.removeEventListener("mouseleave", mention._pingNotificationHandlers.leave);
+                        delete mention._pingNotificationHandlers;
+                    }
+                });
+            };
+        }, []);
+
         const progress = (remainingTime / settings.duration) * 100;
 
         const getNotificationTitle = () => {
@@ -810,6 +1042,10 @@ module.exports = class PingNotification {
                 } else {
                     title = `Unknown Server • #${channel.name}`;
                 }
+            } else if (channel.type === 3) {
+                const recipients = channel.recipients?.map(id => UserStore.getUser(id)).filter(u => u);
+                const name = channel.name || recipients?.map(u => u.username).join(', ');
+                title = `Group Chat • ${name}`;
             } else {
                 title = `Direct Message`;
             }
@@ -833,7 +1069,7 @@ module.exports = class PingNotification {
             }
 
             const member = GuildMemberStore.getMember(message.guild_id, message.author.id);
-            
+
             if (!member || !member.roles) {
                 return null;
             }
@@ -855,34 +1091,9 @@ module.exports = class PingNotification {
             return colorRole ? `#${colorRole.color.toString(16).padStart(6, '0')}` : null;
         };
 
-        const getMentionedRoleColor = () => {
-            if (!message.guild_id || !message.mention_roles || message.mention_roles.length === 0) {
-                return null;
-            }
-
-            const guild = GuildStore.getGuild(message.guild_id);
-            if (!guild) {
-                return null;
-            }
-
-            const guildRoles = getRoles(guild);
-
-            if (!guildRoles) {
-                return null;
-            }
-
-            const mentionedRoles = message.mention_roles
-                .map(roleId => guildRoles[roleId])
-                .filter(role => role && typeof role.color === 'number' && role.color !== 0);
-
-            if (mentionedRoles.length === 0) return null;
-
-            const colorRole = mentionedRoles.sort((a, b) => (b.position || 0) - (a.position || 0))[0];
-            return colorRole ? `#${colorRole.color.toString(16).padStart(6, '0')}` : null;
-        };
 
         const roleColor = React.useMemo(() => getRoleColor(), [message.guild_id, message.author.id]);
-        const mentionedRoleColor = React.useMemo(() => getMentionedRoleColor(), [message.guild_id, message.mention_roles]);
+
 
         const getEmbedContent = (embed) => {
             let content = [];
@@ -898,24 +1109,102 @@ module.exports = class PingNotification {
         };
 
         const renderAttachment = (attachment) => {
-            if (attachment.content_type.startsWith('image/')) {
-                return React.createElement('img', { 
-                    src: attachment.url, 
-                    alt: "Attachment", 
-                    className: "ping-notification-attachment",
-                    onLoad: onImageLoad
-                });
-            } else if (attachment.content_type.startsWith('video/')) {
-                const thumbnailUrl = attachment.proxy_url + '?format=jpeg';
-                return React.createElement('div', { 
+            const isSpoiler = attachment.spoiler || attachment.filename.startsWith('SPOILER_');
+            const commonStyles = {
+                maxWidth: '100%',
+                maxHeight: '150px',
+                borderRadius: '4px',
+                marginTop: '8px',
+                filter: isSpoiler ? 'blur(30px)' : 'none',
+                transition: 'filter 0.2s ease'
+            };
+
+            const handleSpoilerClick = (e) => {
+                if (isSpoiler) {
+                    e.stopPropagation();
+                    const container = e.currentTarget;
+                    const image = container.querySelector('img');
+                    const spoilerText = container.querySelector('.ping-notification-spoiler-text');
+                    if (image) image.style.filter = 'none';
+                    if (spoilerText) spoilerText.style.opacity = '0';
+                }
+            };
+
+            const renderSpoilerText = () => {
+                return React.createElement('div', {
+                    className: 'ping-notification-spoiler-text',
+                    style: {
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-normal)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                        borderRadius: '4px',
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        pointerEvents: 'none',
+                        opacity: '1',
+                        transition: 'opacity 0.2s ease',
+                        zIndex: 1
+                    }
+                }, 
+                    React.createElement('span', {
+                        style: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                        }
+                    }, 'SPOILER')
+                );
+            };
+
+            const preventDrag = (e) => {
+                e.preventDefault();
+            };
+
+            const attachmentContent = attachment.content_type.startsWith('image/') ?
+                React.createElement('div', {
+                    style: {
+                        position: 'relative',
+                        display: 'inline-block',
+                        cursor: isSpoiler ? 'pointer' : 'default'
+                    },
+                    onClick: handleSpoilerClick,
+                    onDragStart: preventDrag
+                },
+                    React.createElement('img', { 
+                        src: attachment.url, 
+                        alt: "Attachment", 
+                        className: "ping-notification-attachment",
+                        style: commonStyles,
+                        onLoad: onImageLoad,
+                        draggable: false,
+                        onDragStart: preventDrag
+                    }),
+                    isSpoiler && renderSpoilerText()
+                ) :
+                attachment.content_type.startsWith('video/') ?
+                React.createElement('div', { 
                     className: "ping-notification-video-attachment",
-                    style: { position: 'relative', display: 'inline-block', alignSelf: 'center' }
+                    style: { 
+                        position: 'relative', 
+                        display: 'inline-block', 
+                        alignSelf: 'center',
+                        cursor: isSpoiler ? 'pointer' : 'default'
+                    },
+                    onClick: handleSpoilerClick,
+                    onDragStart: preventDrag
                 },
                     React.createElement('img', {
-                        src: thumbnailUrl,
+                        src: attachment.proxy_url + '?format=jpeg',
                         alt: "Video Thumbnail",
                         className: "ping-notification-attachment",
-                        onLoad: onImageLoad
+                        style: commonStyles,
+                        onLoad: onImageLoad,
+                        draggable: false,
+                        onDragStart: preventDrag
                     }),
                     React.createElement('div', {
                         className: "ping-notification-video-play-button",
@@ -930,7 +1219,10 @@ module.exports = class PingNotification {
                             borderRadius: '50%',
                             display: 'flex',
                             justifyContent: 'center',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            filter: isSpoiler ? 'blur(30px)' : 'none',
+                            transition: 'filter 0.2s ease',
+                            zIndex: 0
                         }
                     },
                         React.createElement('div', {
@@ -943,10 +1235,18 @@ module.exports = class PingNotification {
                                 marginLeft: '4px'
                             }
                         })
-                    )
-                );
-            }
-            return null;
+                    ),
+                    isSpoiler && renderSpoilerText()
+                ) : null;
+
+            // Wrap the attachment content in a div that will handle privacy mode blur
+            return React.createElement('div', {
+                className: 'ping-notification-attachment-wrapper',
+                style: {
+                    position: 'relative',
+                    display: 'inline-block'
+                }
+            }, attachmentContent);
         };
 
         const truncateMessage = (content, embedContent) => {
@@ -1156,15 +1456,20 @@ module.exports = class PingNotification {
                 style: { 
                     flex: 1, 
                     marginTop: '12px',
-                    marginBottom: '8px', 
-                    color: mentionedRoleColor || 'var(--text-normal)',
+                    marginBottom: '8px',
                     fontStyle: isForwardedMessage ? 'italic' : 'normal',
                     fontSize: '14px',
                     lineHeight: '1.4'
                 }
             },
                 isForwardedMessage && React.createElement(ForwardedIcon),
-                parse(getMessageContent(), true, { channelId: channel.id })
+                parse(getMessageContent(), {
+                    channelId: channel.id,
+                    allowLinks: true,
+                    allowMarkdown: true,
+                    rules: defaultRules,
+                    renderSpoilers: true
+                })
             ),
             message.attachments && message.attachments.length > 0 && 
                 renderAttachment(message.attachments[0]),
@@ -1203,7 +1508,10 @@ module.exports = class PingNotification {
                     padding: '2px 6px',
                     borderRadius: '10px'
                 }
-            }, `${Math.round(remainingTime / 1000)}s`)
+            }, `${Math.round(remainingTime / 1000)}s`),
+            settings.privacyMode && React.createElement('div', {
+                className: 'ping-notification-hover-text'
+            }, "Hover to unblur")
         );
     }
 
@@ -1212,6 +1520,7 @@ module.exports = class PingNotification {
 
         const handleChange = (key, value) => {
             const newSettings = { ...localSettings, [key]: value };
+
             setLocalSettings(newSettings);
             onSettingsChange(newSettings);
         };
@@ -1274,6 +1583,19 @@ module.exports = class PingNotification {
         return React.createElement('div', { className: 'pingNotification-settings' },
             React.createElement('div', { className: 'pingNotification-section' },
                 React.createElement('h3', { className: 'pingNotification-section-title' }, "General Settings"),
+
+                React.createElement('div', { className: 'pingNotification-setting' },
+                    React.createElement('label', { className: 'pingNotification-label' }, "Notification Mode"),
+                    React.createElement('select', {
+                        value: localSettings.mode,
+                        onChange: (e) => handleChange('mode', e.target.value),
+                        className: 'pingNotification-select'
+                    },
+                        React.createElement('option', { value: "automatic" }, "Automatic (Use Discord's settings)"),
+                        React.createElement('option', { value: "manual" }, "Manual (Use allowed/ignored lists)")
+                    )
+                ),
+
                 React.createElement('div', { className: 'pingNotification-setting' },
                     React.createElement('label', { className: 'pingNotification-label' }, "Notification Duration"),
                     React.createElement('div', { className: 'pingNotification-duration' },
@@ -1314,18 +1636,20 @@ module.exports = class PingNotification {
                 React.createElement('div', { className: 'pingNotification-separator' }),
 
                 React.createElement('div', { className: 'pingNotification-buttons' },
-                    React.createElement('button', { 
-                        className: 'pingNotification-button', 
-                        onClick: () => openModal('guild')
-                    }, `Allowed Guilds`),
-                    React.createElement('button', { 
-                        className: 'pingNotification-button', 
-                        onClick: () => openModal('channel')
-                    }, `Ignored Channels`),
-                    React.createElement('button', { 
-                        className: 'pingNotification-button', 
-                        onClick: () => openModal('user')
-                    }, `Ignored Users`)
+                    localSettings.mode === "manual" && React.createElement(React.Fragment, null,
+                        React.createElement('button', { 
+                            className: 'pingNotification-button', 
+                            onClick: () => openModal('guild')
+                        }, `Allowed Guilds`),
+                        React.createElement('button', { 
+                            className: 'pingNotification-button', 
+                            onClick: () => openModal('channel')
+                        }, `Ignored Channels`),
+                        React.createElement('button', { 
+                            className: 'pingNotification-button', 
+                            onClick: () => openModal('user')
+                        }, `Ignored Users`)
+                    )
                 )
             ),
 
@@ -1348,9 +1672,16 @@ module.exports = class PingNotification {
                 React.createElement('div', { className: 'pingNotification-separator' }),
 
                 React.createElement(Switch, {
-                    label: "Color senders username based on their role",
+                    label: "Color senders username based on their role color",
                     checked: localSettings.coloredUsernames,
                     onChange: (value) => handleChange('coloredUsernames', value)
+                }),
+                React.createElement('div', { className: 'pingNotification-separator' }),
+
+                React.createElement(Switch, {
+                    label: "Color user mentions based on their role color",
+                    checked: localSettings.colorMentions,
+                    onChange: (value) => handleChange('colorMentions', value)
                 }),
                 React.createElement('div', { className: 'pingNotification-separator' }),
 
