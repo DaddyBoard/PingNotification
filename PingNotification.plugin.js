@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 6.3
+ * @version 6.3.1
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -110,14 +110,20 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.3",
+                version: "6.3.1",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
                 {
-                    title: "6.3 HUGE UPDATE",
+                    title: "6.3.1",
+                    items: [
+                        "* Added new setting to blur all content from NSFW (age restricted) channels, disabled by default.",
+                    ]
+                },
+                {
+                    title: "6.3",
                     items: [
                         "* Added proper support for spoilered content (text, images and videos) in notifications",
                         "* Privacy mode rework, is now clearer and more intuitive",
@@ -184,6 +190,7 @@ module.exports = class PingNotification {
                 ignoredThreads: [],
                 mode: "automatic",
                 colorMentions: true,
+                applyNSFWBlur: false
             };
             this.activeNotifications = [];
 
@@ -1035,6 +1042,8 @@ module.exports = class PingNotification {
 
         const getNotificationTitle = () => {
             let title = '';
+            const isNSFW = channel.nsfw || channel.nsfw_;
+            
             if (channel.guild_id) {
                 const guild = GuildStore.getGuild(channel.guild_id);
                 if (guild && guild.name) {
@@ -1049,6 +1058,21 @@ module.exports = class PingNotification {
             } else {
                 title = `Direct Message`;
             }
+
+            if (isNSFW && settings.applyNSFWBlur) {
+                title += ' • ';
+                return React.createElement('div', { style: { display: 'flex', alignItems: 'center' } },
+                    title,
+                    React.createElement('span', {
+                        style: {
+                            color: 'rgb(240, 71, 71)',
+                            fontWeight: 'bold',
+                            marginLeft: '4px'
+                        }
+                    }, 'NSFW')
+                );
+            }
+            
             return title;
         };
 
@@ -1239,7 +1263,6 @@ module.exports = class PingNotification {
                     isSpoiler && renderSpoilerText()
                 ) : null;
 
-            // Wrap the attachment content in a div that will handle privacy mode blur
             return React.createElement('div', {
                 className: 'ping-notification-attachment-wrapper',
                 style: {
@@ -1379,7 +1402,11 @@ module.exports = class PingNotification {
         ));
 
         return React.createElement('div', {
-            className: `ping-notification-content ${isGlowing ? 'glow' : ''} ${settings.privacyMode ? 'privacy-mode' : ''}`,
+            className: `ping-notification-content ${isGlowing ? 'glow' : ''} ${
+                settings.privacyMode || (settings.applyNSFWBlur && (channel.nsfw || channel.nsfw_)) 
+                ? 'privacy-mode' 
+                : ''
+            }`,
             onClick: onClick,
             onMouseEnter: () => setIsPaused(true),
             onMouseLeave: () => setIsPaused(false),
@@ -1437,19 +1464,10 @@ module.exports = class PingNotification {
                         }
                     }, getNotificationTitle())
                 ),
-                React.createElement('div', { 
-                    className: "ping-notification-close", 
-                    onClick: (e) => { e.stopPropagation(); onClose(); },
-                    style: {
-                        position: 'absolute',
-                        top: '12px',
-                        right: '12px',
-                        fontSize: '20px',
-                        color: 'var(--interactive-normal)',
-                        cursor: 'pointer',
-                        transition: 'color 0.2s ease'
-                    }
-                }, '×')
+                (settings.privacyMode || (settings.applyNSFWBlur && (channel.nsfw || channel.nsfw_))) && 
+                React.createElement('div', {
+                    className: 'ping-notification-hover-text'
+                }, "Hover to unblur")
             ),
             React.createElement('div', { 
                 className: "ping-notification-body",
@@ -1689,6 +1707,12 @@ module.exports = class PingNotification {
                     label: "Show nicknames instead of usernames",
                     checked: localSettings.showNicknames,
                     onChange: (value) => handleChange('showNicknames', value)
+                }),
+                React.createElement('div', { className: 'pingNotification-separator' }),
+                React.createElement(Switch, {
+                    label: "Blur all content from NSFW (age restricted) channels",
+                    checked: localSettings.applyNSFWBlur,
+                    onChange: (value) => handleChange('applyNSFWBlur', value)
                 })
             )
         );
