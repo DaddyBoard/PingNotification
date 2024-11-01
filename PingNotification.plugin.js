@@ -76,7 +76,8 @@ module.exports = class PingNotification {
                     title: "6.3.1",
                     items: [
                         "Added new setting to blur all content from NSFW (age restricted) channels, disabled by default.",
-                        "Updated changelog to use BetterDiscord's UI components."
+                        "Updated changelog to use BetterDiscord's UI components.",
+                        "Fixed issue with un-spoilered images not being clickable to invoke transitionTo."
                     ]
                 },
                 {
@@ -1106,39 +1107,17 @@ module.exports = class PingNotification {
                     const container = e.currentTarget;
                     const image = container.querySelector('img');
                     const spoilerText = container.querySelector('.ping-notification-spoiler-text');
-                    if (image) image.style.filter = 'none';
+                    if (image) {
+                        image.style.filter = 'none';
+                        // Instead of removing the click handler, we'll modify its behavior
+                        container.onclick = (event) => {
+                            // Let the click event bubble up to the notification click handler
+                            event.target.closest('.ping-notification-content').click();
+                        };
+                        container.style.cursor = 'pointer';
+                    }
                     if (spoilerText) spoilerText.style.opacity = '0';
                 }
-            };
-
-            const renderSpoilerText = () => {
-                return React.createElement('div', {
-                    className: 'ping-notification-spoiler-text',
-                    style: {
-                        position: 'absolute',
-                        inset: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--text-normal)',
-                        backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                        borderRadius: '4px',
-                        fontWeight: '600',
-                        fontSize: '14px',
-                        pointerEvents: 'none',
-                        opacity: '1',
-                        transition: 'opacity 0.2s ease',
-                        zIndex: 1
-                    }
-                }, 
-                    React.createElement('span', {
-                        style: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                            padding: '4px 8px',
-                            borderRadius: '4px',
-                        }
-                    }, 'SPOILER')
-                );
             };
 
             const preventDrag = (e) => {
@@ -1164,7 +1143,33 @@ module.exports = class PingNotification {
                         draggable: false,
                         onDragStart: preventDrag
                     }),
-                    isSpoiler && renderSpoilerText()
+                    isSpoiler && React.createElement('div', {
+                        className: 'ping-notification-spoiler-text',
+                        style: {
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--text-normal)',
+                            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                            borderRadius: '4px',
+                            fontWeight: '600',
+                            fontSize: '14px',
+                            pointerEvents: 'none',
+                            opacity: '1',
+                            transition: 'opacity 0.2s ease',
+                            zIndex: 1
+                        }
+                    }, 
+                        React.createElement('span', {
+                            style: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                            }
+                        }, 'SPOILER')
+                    )
                 ) :
                 attachment.content_type.startsWith('video/') ?
                 React.createElement('div', { 
@@ -1217,7 +1222,33 @@ module.exports = class PingNotification {
                             }
                         })
                     ),
-                    isSpoiler && renderSpoilerText()
+                    isSpoiler && React.createElement('div', {
+                        className: 'ping-notification-spoiler-text',
+                        style: {
+                            position: 'absolute',
+                            inset: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--text-normal)',
+                            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                            borderRadius: '4px',
+                            fontWeight: '600',
+                            fontSize: '14px',
+                            pointerEvents: 'none',
+                            opacity: '1',
+                            transition: 'opacity 0.2s ease',
+                            zIndex: 1
+                        }
+                    }, 
+                        React.createElement('span', {
+                            style: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                            }
+                        }, 'SPOILER')
+                    )
                 ) : null;
 
             return React.createElement('div', {
