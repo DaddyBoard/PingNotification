@@ -1452,6 +1452,19 @@ module.exports = class PingNotification {
                         }
                     }, getNotificationTitle())
                 ),
+                React.createElement('div', { 
+                    className: "ping-notification-close", 
+                    onClick: (e) => { e.stopPropagation(); onClose(); },
+                    style: {
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        fontSize: '20px',
+                        color: 'var(--interactive-normal)',
+                        cursor: 'pointer',
+                        transition: 'color 0.2s ease'
+                    }
+                }, '×'),
                 (settings.privacyMode || (settings.applyNSFWBlur && (channel.nsfw || channel.nsfw_))) && 
                 React.createElement('div', {
                     className: 'ping-notification-hover-text'
