@@ -33,63 +33,19 @@ module.exports = class PingNotification {
 
     showChangelog() {
         try {
-            const ChangelogContent = () => {
-                const parseMarkdown = (text) => {
-                    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                               .replace(/^\* (.+)$/gm, '• $1')
-                               .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                               .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-                               .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-                               .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-                               .replace(/\n/g, '<br>');
-                };
+            const changelogContent = Array.isArray(this.config.changelog) 
+                ? this.config.changelog.map((change, index) => {
+                    const isNew = index === 0;
+                    return `# __v${change.title}__ ${isNew ? '🆕' : ''}\r\n\r\n${change.items.map(item => `• ${item}`).join('\r\n\r\n')}`;
+                }).join('\r\n\r\n\r\n')
+                : "No changelog available.";
 
-                return React.createElement('div', { style: { color: 'var(--text-normal)', padding: '20px' } },
-                    Array.isArray(this.config.changelog) ? this.config.changelog.map((change, index) => 
-                        React.createElement('div', { key: index, style: { marginBottom: '20px' } },
-                            React.createElement('h3', { 
-                                style: { 
-                                    color: 'var(--header-secondary)', 
-                                    marginBottom: '10px',
-                                    paddingLeft: '0px'
-                                } 
-                            }, 
-                                index === 0 ? [
-                                    React.createElement('span', {
-                                        style: {
-                                            color: 'red',
-                                            fontWeight: 'bold',
-                                            marginRight: '10px'
-                                        }
-                                    }, "NEW!"),
-                                    change.title
-                                ] : change.title
-                            ),
-                            React.createElement('div', { 
-                                style: { 
-                                    paddingLeft: '20px'
-                                } 
-                            },
-                                change.items.map((item, itemIndex) => 
-                                    React.createElement('div', { 
-                                        key: itemIndex,
-                                        style: { marginBottom: '10px' },
-                                        dangerouslySetInnerHTML: { __html: parseMarkdown(item) }
-                                    })
-                                )
-                            )
-                        )
-                    ) : React.createElement('p', null, "No changelog available.")
-                );
-            };
-
-            BdApi.showConfirmationModal(
+            BdApi.UI.showConfirmationModal(
                 "PingNotification Changelog",
-                React.createElement(ChangelogContent),
+                changelogContent,
                 {
                     confirmText: "Close",
-                    cancelText: null,
-                    onConfirm: () => {}
+                    cancelText: null
                 }
             );
 
@@ -119,59 +75,60 @@ module.exports = class PingNotification {
                 {
                     title: "6.3.1",
                     items: [
-                        "* Added new setting to blur all content from NSFW (age restricted) channels, disabled by default.",
+                        "Added new setting to blur all content from NSFW (age restricted) channels, disabled by default.",
+                        "Updated changelog to use BetterDiscord's UI components."
                     ]
                 },
                 {
                     title: "6.3",
                     items: [
-                        "* Added proper support for spoilered content (text, images and videos) in notifications",
-                        "* Privacy mode rework, is now clearer and more intuitive",
-                        "* Now displays Group DMs as 'Group Chat • {Name}'",
-                        "* Added support for threads in automatic mode",
-                        "* Now closes all notifications from the same channel/DM when one is clicked",
-                        "* Added new setting to color user mentions based on their role color",
-                        "* Added new 'automatic' mode that follows Discord's notification settings directly"
-                    ]
-                },
-                {
-                    title: "6.2",
-                    items: [
-                        "* Added context menu items for channels, guilds, threads and users so you can easily add/remove them from the ignored lists.",
-                        "* Completely rewritten all of the settings menus with a new design.",
-                        "* Overhauled the popup theme to be more sleek and modern. Better readability.",
-                        "* Completely removed the janky blacklist/whitelist system. Default behavior is now;  **whitelist** servers you want all notifications for, **ignore** specific channels and **ignore** specific users. For more info, check the GitHub README.",
-                        "If you experience any issues, please fully close discord and delete 'pingnotification.**config**.json' from your BetterDiscord/plugins folder. Then restart discord and let the plugin's config reset. This will mean the plugin will revert to default settings, and you'll have to configure it again."
-                    ]
-                },
-                {
-                    title: "v6.1",
-                    items: [
-                        "* Added logic to handle forwarded messages gracefully.",
-                    ]
-                },
-                {
-                    title: "v6.0.1",
-                    items: [
-                        "* Removed auto-update logic as it is no longer allowed.",
-                    ]
-                },
-                {
-                    title: "v6.0",
-                    items: [
-                        "* **Major change:** Moved away from ZeresPluginLibrary to use built-in BdApi.",
-                        "* General code improvements and optimizations."
-                    ]
-                },
-                {
-                    title: "v5.4.1",
-                    items: [
-                        "* You can now swipe the notification to the left or right to close it, depending on notification location.",
-                        "* Added a new setting to show nicknames instead of usernames from the server the message was sent in. *Disabled by default.*",
-                        "* Added a new setting to show senders color based on their role from the server the message was sent in. *Disabled by default.*",
-                        "* General code improvements and optimizations."
+                        "Added proper support for spoilered content (text, images and videos) in notifications",
+                        "Privacy mode rework, is now clearer and more intuitive",
+                        "Now displays Group DMs as 'Group Chat • {Name}'",
+                        "Added support for threads in automatic mode",
+                        "Now closes all notifications from the same channel/DM when one is clicked",
+                        "Added new setting to color user mentions based on their role color",
+                        "Added new 'automatic' mode that follows Discord's notification settings directly"
                     ]
                 }
+                // {
+                //     title: "6.2",
+                //     items: [
+                //         "Added context menu items for channels, guilds, threads and users so you can easily add/remove them from the ignored lists.",
+                //         "Completely rewritten all of the settings menus with a new design.",
+                //         "Overhauled the popup theme to be more sleek and modern. Better readability.",
+                //         "Completely removed the janky blacklist/whitelist system. Default behavior is now;  **whitelist** servers you want all notifications for, **ignore*specific channels and **ignore*specific users. For more info, check the GitHub README.",
+                //         "If you experience any issues, please fully close discord and delete 'pingnotification.**config**.json' from your BetterDiscord/plugins folder. Then restart discord and let the plugin's config reset. This will mean the plugin will revert to default settings, and you'll have to configure it again."
+                //     ]
+                // },
+                // {
+                //     title: "v6.1",
+                //     items: [
+                //         "Added logic to handle forwarded messages gracefully.",
+                //     ]
+                // },
+                // {
+                //     title: "v6.0.1",
+                //     items: [
+                //         "Removed auto-update logic as it is no longer allowed.",
+                //     ]
+                // },
+                // {
+                //     title: "v6.0",
+                //     items: [
+                //         "**Major change:*Moved away from ZeresPluginLibrary to use built-in BdApi.",
+                //         "General code improvements and optimizations."
+                //     ]
+                // },
+                // {
+                //     title: "v5.4.1",
+                //     items: [
+                //         "You can now swipe the notification to the left or right to close it, depending on notification location.",
+                //         "Added a new setting to show nicknames instead of usernames from the server the message was sent in. *Disabled by default.*",
+                //         "Added a new setting to show senders color based on their role from the server the message was sent in. *Disabled by default.*",
+                //         "General code improvements and optimizations."
+                //     ]
+                // }
             ],
             main: "index.js"
         };
