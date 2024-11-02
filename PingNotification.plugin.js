@@ -14,13 +14,13 @@ const { React, Webpack, Patcher, Data, Dispatcher, ReactDOM } = BdApi;
 
 const UserStore = Webpack.getStore("UserStore");
 const ChannelStore = Webpack.getStore("ChannelStore");
-const GuildChannelsStore = Webpack.getStore("GuildChannelStore");
 const GuildStore = Webpack.getStore("GuildStore");
 const PermissionStore = BdApi.Webpack.getStore("PermissionStore");
 const SortedGuildStore = BdApi.Webpack.getStore("SortedGuildStore");
 const SelectedChannelStore = Webpack.getStore("SelectedChannelStore");
 const RelationshipStore = Webpack.getStore("RelationshipStore");
 const GuildChannelStore = Webpack.getStore("GuildChannelStore");
+const UserGuildSettingsStore = BdApi.Webpack.getStore("UserGuildSettingsStore");
 const transitionTo = Webpack.getByStrings(["transitionTo - Transitioning to"],{searchExports:true});
 const MessageParserModule = Webpack.getModule(m => m.defaultRules && m.parse);
 const parse = MessageParserModule?.parse;
@@ -92,44 +92,6 @@ module.exports = class PingNotification {
                         "Added new 'automatic' mode that follows Discord's notification settings directly"
                     ]
                 }
-                // {
-                //     title: "6.2",
-                //     items: [
-                //         "Added context menu items for channels, guilds, threads and users so you can easily add/remove them from the ignored lists.",
-                //         "Completely rewritten all of the settings menus with a new design.",
-                //         "Overhauled the popup theme to be more sleek and modern. Better readability.",
-                //         "Completely removed the janky blacklist/whitelist system. Default behavior is now;  **whitelist** servers you want all notifications for, **ignore*specific channels and **ignore*specific users. For more info, check the GitHub README.",
-                //         "If you experience any issues, please fully close discord and delete 'pingnotification.**config**.json' from your BetterDiscord/plugins folder. Then restart discord and let the plugin's config reset. This will mean the plugin will revert to default settings, and you'll have to configure it again."
-                //     ]
-                // },
-                // {
-                //     title: "v6.1",
-                //     items: [
-                //         "Added logic to handle forwarded messages gracefully.",
-                //     ]
-                // },
-                // {
-                //     title: "v6.0.1",
-                //     items: [
-                //         "Removed auto-update logic as it is no longer allowed.",
-                //     ]
-                // },
-                // {
-                //     title: "v6.0",
-                //     items: [
-                //         "**Major change:*Moved away from ZeresPluginLibrary to use built-in BdApi.",
-                //         "General code improvements and optimizations."
-                //     ]
-                // },
-                // {
-                //     title: "v5.4.1",
-                //     items: [
-                //         "You can now swipe the notification to the left or right to close it, depending on notification location.",
-                //         "Added a new setting to show nicknames instead of usernames from the server the message was sent in. *Disabled by default.*",
-                //         "Added a new setting to show senders color based on their role from the server the message was sent in. *Disabled by default.*",
-                //         "General code improvements and optimizations."
-                //     ]
-                // }
             ],
             main: "index.js"
         };
@@ -643,15 +605,12 @@ module.exports = class PingNotification {
     
         const isForwardedMessage = (message.flags & 16384) === 16384;
     
-        if (this.shouldNotify(message, channel)) {
+        if (this.shouldNotify(message, channel, currentUser)) {
             this.showNotification(message, channel, isForwardedMessage);
         }
     }
 
-    shouldNotify(message, channel) {
-        const currentUser = UserStore.getCurrentUser();
-        const UserGuildSettingsStore = BdApi.Webpack.getStore("UserGuildSettingsStore");
-
+    shouldNotify(message, channel, currentUser) {
         if (!this.settings.allowNotificationsInCurrentChannel && channel.id === SelectedChannelStore.getChannelId()) {
             return false;
         }
@@ -735,9 +694,8 @@ module.exports = class PingNotification {
                 return true;
             }
         }
-        
-                    return false;
-                }
+        return false;
+    }
 
     
 
@@ -755,7 +713,9 @@ module.exports = class PingNotification {
                 channel: channel,
                 settings: this.settings,
                 isForwardedMessage: isForwardedMessage,
-                onClose: () => this.removeNotification(notificationElement),
+                onClose: () => { 
+                    this.removeNotification(notificationElement);
+                },
                 onClick: () => {
                     this.onNotificationClick(channel, message);
                     this.removeNotification(notificationElement);
@@ -871,10 +831,77 @@ module.exports = class PingNotification {
 }
 
     function NotificationComponent({ message, channel, settings, isForwardedMessage, onClose, onClick, onImageLoad, onSwipe }) {
+
+        const currentUser = UserStore.getCurrentUser();
+        const guild = channel.guild_id ? GuildStore.getGuild(channel.guild_id) : null;
+        const member = guild ? GuildMemberStore.getMember(guild.id, message.author.id) : null;
+        const guildMember = currentUser && guild ? GuildMemberStore.getMember(guild.id, currentUser.id) : null;
+
         const [remainingTime, setRemainingTime] = React.useState(settings.duration);
         const [isPaused, setIsPaused] = React.useState(false);
         const [isGlowing, setIsGlowing] = React.useState(true);
 
+
+        const notificationTitle = React.useMemo(() => {
+            let title = '';
+            const isNSFW = channel.nsfw || channel.nsfw_;
+
+            if (channel.guild_id) {
+                title = guild ? `${guild.name} • #${channel.name}` : `Unknown Server • #${channel.name}`;
+            } else if (channel.type === 3) {
+                const recipients = channel.recipients?.map(id => UserStore.getUser(id)).filter(u => u);
+                const name = channel.name || recipients?.map(u => u.username).join(', ');
+                title = `Group Chat • ${name}`;
+            } else {
+                title = `Direct Message`;
+            }
+
+            if (isNSFW && settings.applyNSFWBlur) {
+                title += ' • ';
+                return React.createElement('div', { style: { display: 'flex', alignItems: 'center' } },
+                    title,
+                    React.createElement('span', {
+                        style: {
+                            color: 'rgb(240, 71, 71)',
+                            fontWeight: 'bold',
+                            marginLeft: '4px'
+                        }
+                    }, 'NSFW')
+                );
+            }
+
+            return title;
+        }, [channel, guild?.name, settings.applyNSFWBlur]);
+
+        const roleColor = React.useMemo(() => {
+            if (!guild || !member || !member.roles) return null;
+            const getRoles = Webpack.getModule(m => m.getRole);
+            const guildRoles = getRoles.getRoles(guild.id);
+            if (!guildRoles) return null;
+            
+            const roles = member.roles
+                .map(roleId => guildRoles[roleId])
+                .filter(role => role && typeof role.color === 'number' && role.color !== 0);
+            
+            if (roles.length === 0) return null;
+            const colorRole = roles.sort((a, b) => (b.position || 0) - (a.position || 0))[0];
+            return colorRole ? `#${colorRole.color.toString(16).padStart(6, '0')}` : null;
+        }, [guild?.id, member?.roles]);
+
+        const displayName = React.useMemo(() => {
+            if (settings.showNicknames && member?.nick) {
+                return member.nick;
+            }
+            return message.author.username;
+        }, [settings.showNicknames, member?.nick, message.author.username]);
+
+        const avatarUrl = React.useMemo(() => {
+            return message.author.avatar
+                ? `https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}.png?size=128`
+                : `https://cdn.discordapp.com/embed/avatars/${parseInt(message.author.discriminator) % 5}.png`;
+        }, [message.author]);
+
+        
         React.useEffect(() => {
             let interval;
             if (!isPaused) {
@@ -910,13 +937,10 @@ module.exports = class PingNotification {
             return [r, g, b];
         };
 
-        React.useEffect(() => {
-            if (!settings.colorMentions) return;
-
-            const mentionElements = document.querySelectorAll('.ping-notification .mention');
-            const messageMentions = [...(message.mentions || [])];
-            const currentUser = BdApi.Webpack.getStore("UserStore").getCurrentUser();
+        const mentionsData = React.useMemo(() => {
+            if (!settings.colorMentions) return null;
             
+            const messageMentions = [...(message.mentions || [])];
             if (message.mentions_everyone || message.mention_everyone || 
                 message.mentions?.some(m => m.id === currentUser.id)) {
                 if (!messageMentions.find(m => m.id === currentUser.id)) {
@@ -924,32 +948,54 @@ module.exports = class PingNotification {
                 }
             }
 
+            return messageMentions.reduce((acc, user) => {
+                if (guild) {
+                    const mentionedMember = GuildMemberStore.getMember(guild.id, user.id);
+                    if (mentionedMember?.roles) {
+                        const getRoles = Webpack.getModule(m => m.getRole);
+                        const guildRoles = getRoles.getRoles(guild.id);
+                        if (guildRoles) {
+                            const roles = mentionedMember.roles
+                                .map(roleId => guildRoles[roleId])
+                                .filter(role => role && typeof role.color === 'number' && role.color !== 0);
+                            
+                            if (roles.length > 0) {
+                                const colorRole = roles.sort((a, b) => (b.position || 0) - (a.position || 0))[0];
+                                acc[user.id] = `#${colorRole.color.toString(16).padStart(6, '0')}`;
+                            }
+                        }
+                    }
+                }
+                return acc;
+            }, {});
+        }, [message.mentions, message.mentions_everyone, message.mention_everyone, currentUser.id, guild?.id]);
+
+        React.useEffect(() => {
+            if (!settings.colorMentions || !mentionsData) return;
+
+            const mentionElements = document.querySelectorAll('.ping-notification .mention');
+            
             mentionElements.forEach((mention) => {
                 if (mention.className.includes('role') || mention.className.includes('command')) return;
                 if (mention._colorInitialized) return;
 
                 const mentionText = mention.textContent.replace('@', '');
-
-                const mentionedUser = messageMentions.find(user => [
-                    user.username === mentionText,
-                    user.globalName === mentionText,
-                    user.id === currentUser.id && mentionText === currentUser.username,
-                    user.id === currentUser.id && mentionText === currentUser.globalName
-                ].some(match => match));
+                const mentionedUser = [...(message.mentions || []), currentUser].find(user => 
+                    user.username === mentionText || 
+                    user.globalName === mentionText ||
+                    (user.id === currentUser.id && mentionText === currentUser.username) ||
+                    (user.id === currentUser.id && mentionText === currentUser.globalName)
+                );
 
                 if (!mentionedUser) return;
 
-                const member = BdApi.Webpack.getStore("GuildMemberStore").getMember(channel.guild_id, mentionedUser.id);
-                const color = member?.colorString;
-                mention._storedColor = color;
-                mention._colorInitialized = true;
+                const userColor = mentionsData[mentionedUser.id];
+                if (!userColor) return;
 
                 const handleMouseEnter = () => {
                     mention.style.setProperty(
                         "background-color", 
-                        color ? 
-                            `rgba(${hexToRGB(color).join(", ")}, 0.3)` :
-                            'rgba(88, 101, 242, 0.3)', 
+                        `rgba(${hexToRGB(userColor).join(", ")}, 0.3)`, 
                         "important"
                     );
                 };
@@ -957,24 +1003,17 @@ module.exports = class PingNotification {
                 const handleMouseLeave = () => {
                     mention.style.setProperty(
                         "background-color", 
-                        color ? 
-                            `rgba(${hexToRGB(color).join(", ")}, 0.1)` :
-                            'rgba(88, 101, 242, 0.15)', 
+                        `rgba(${hexToRGB(userColor).join(", ")}, 0.1)`, 
                         "important"
                     );
                 };
 
-                if (color) {
-                    mention.style.setProperty("color", color, "important");
-                    mention.style.setProperty(
-                        "background-color", 
-                        `rgba(${hexToRGB(color).join(", ")}, 0.1)`, 
-                        "important"
-                    );
-                } else {
-                    mention.style.removeProperty("color");
-                    mention.style.removeProperty("background-color");
-                }
+                mention.style.setProperty("color", userColor, "important");
+                mention.style.setProperty(
+                    "background-color", 
+                    `rgba(${hexToRGB(userColor).join(", ")}, 0.1)`, 
+                    "important"
+                );
 
                 mention.addEventListener("mouseenter", handleMouseEnter);
                 mention.addEventListener("mouseleave", handleMouseLeave);
@@ -983,6 +1022,7 @@ module.exports = class PingNotification {
                     enter: handleMouseEnter,
                     leave: handleMouseLeave
                 };
+                mention._colorInitialized = true;
             });
 
             return () => {
@@ -991,90 +1031,13 @@ module.exports = class PingNotification {
                         mention.removeEventListener("mouseenter", mention._pingNotificationHandlers.enter);
                         mention.removeEventListener("mouseleave", mention._pingNotificationHandlers.leave);
                         delete mention._pingNotificationHandlers;
+                        delete mention._colorInitialized;
                     }
                 });
             };
-        }, []);
+        }, [settings.colorMentions, mentionsData, message.mentions]);
 
         const progress = (remainingTime / settings.duration) * 100;
-
-        const getNotificationTitle = () => {
-            let title = '';
-            const isNSFW = channel.nsfw || channel.nsfw_;
-            
-            if (channel.guild_id) {
-                const guild = GuildStore.getGuild(channel.guild_id);
-                if (guild && guild.name) {
-                    title = `${guild.name} • #${channel.name}`;
-                } else {
-                    title = `Unknown Server • #${channel.name}`;
-                }
-            } else if (channel.type === 3) {
-                const recipients = channel.recipients?.map(id => UserStore.getUser(id)).filter(u => u);
-                const name = channel.name || recipients?.map(u => u.username).join(', ');
-                title = `Group Chat • ${name}`;
-            } else {
-                title = `Direct Message`;
-            }
-
-            if (isNSFW && settings.applyNSFWBlur) {
-                title += ' • ';
-                return React.createElement('div', { style: { display: 'flex', alignItems: 'center' } },
-                    title,
-                    React.createElement('span', {
-                        style: {
-                            color: 'rgb(240, 71, 71)',
-                            fontWeight: 'bold',
-                            marginLeft: '4px'
-                        }
-                    }, 'NSFW')
-                );
-            }
-            
-            return title;
-        };
-
-        const getAvatarUrl = () => {
-            return message.author.avatar
-                ? `https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}.png?size=128`
-                : `https://cdn.discordapp.com/embed/avatars/${parseInt(message.author.discriminator) % 5}.png`;
-        };
-
-        const getRoleColor = () => {
-            if (!message.guild_id) {
-                return null;
-            }
-
-            const guild = GuildStore.getGuild(message.guild_id);
-            if (!guild) {
-                return null;
-            }
-
-            const member = GuildMemberStore.getMember(message.guild_id, message.author.id);
-
-            if (!member || !member.roles) {
-                return null;
-            }
-
-            const getRoles = Webpack.getModule(m => m.getRole);
-            const guildRoles = getRoles.getRoles(guild.id);
-
-            if (!guildRoles) {
-                return null;
-            }
-
-            const roles = member.roles
-                .map(roleId => guildRoles[roleId])
-                .filter(role => role && typeof role.color === 'number' && role.color !== 0);
-
-            if (roles.length === 0) return null;
-
-            const colorRole = roles.sort((a, b) => (b.position || 0) - (a.position || 0))[0];
-            return colorRole ? `#${colorRole.color.toString(16).padStart(6, '0')}` : null;
-        };
-
-
-        const roleColor = React.useMemo(() => getRoleColor(), [message.guild_id, message.author.id]);
 
 
         const getEmbedContent = (embed) => {
@@ -1109,9 +1072,7 @@ module.exports = class PingNotification {
                     const spoilerText = container.querySelector('.ping-notification-spoiler-text');
                     if (image) {
                         image.style.filter = 'none';
-                        // Instead of removing the click handler, we'll modify its behavior
                         container.onclick = (event) => {
-                            // Let the click event bubble up to the notification click handler
                             event.target.closest('.ping-notification-content').click();
                         };
                         container.style.cursor = 'pointer';
@@ -1325,19 +1286,6 @@ module.exports = class PingNotification {
         const progressColor = getProgressColor();
         const progressColorString = `rgb(${progressColor[0]}, ${progressColor[1]}, ${progressColor[2]})`;
 
-        const getDisplayName = () => {
-            if (settings.showNicknames && channel.guild_id) {
-                const guild = GuildStore.getGuild(channel.guild_id);
-                if (guild) {
-                    const member = GuildMemberStore.getMember(guild.id, message.author.id);
-                    if (member && member.nick) {
-                        return member.nick;
-                    }
-                }
-            }
-            return message.author.username;
-        };
-
         const handleSwipe = (e) => {
             const startX = e.touches ? e.touches[0].clientX : e.clientX;
             const handleMove = (moveEvent) => {
@@ -1418,7 +1366,7 @@ module.exports = class PingNotification {
         },
             React.createElement('div', { className: "ping-notification-header" },
                 React.createElement('img', { 
-                    src: getAvatarUrl(), 
+                    src: avatarUrl, 
                     alt: "Avatar", 
                     className: "ping-notification-avatar",
                     style: {
@@ -1444,13 +1392,13 @@ module.exports = class PingNotification {
                             color: settings.coloredUsernames && roleColor ? roleColor : 'var(--header-primary)',
                             marginBottom: '2px'
                         }
-                    }, getDisplayName()),
+                    }, displayName),
                     React.createElement('span', {
                         style: {
                             fontSize: '12px',
                             color: 'var(--text-muted)'
                         }
-                    }, getNotificationTitle())
+                    }, notificationTitle)
                 ),
                 React.createElement('div', { 
                     className: "ping-notification-close", 
@@ -1681,7 +1629,12 @@ module.exports = class PingNotification {
                     checked: localSettings.privacyMode,
                     onChange: (value) => handleChange('privacyMode', value)
                 }),
-
+                React.createElement('div', { className: 'pingNotification-separator' }),
+                React.createElement(Switch, {
+                    label: "Blur all content from NSFW (age restricted) channels",
+                    checked: localSettings.applyNSFWBlur,
+                    onChange: (value) => handleChange('applyNSFWBlur', value)
+                }),
                 React.createElement('div', { className: 'pingNotification-separator' }),
                 React.createElement(Switch, {
                     label: "Allow notifications in channels you're currently viewing",
@@ -1709,12 +1662,6 @@ module.exports = class PingNotification {
                     checked: localSettings.showNicknames,
                     onChange: (value) => handleChange('showNicknames', value)
                 }),
-                React.createElement('div', { className: 'pingNotification-separator' }),
-                React.createElement(Switch, {
-                    label: "Blur all content from NSFW (age restricted) channels",
-                    checked: localSettings.applyNSFWBlur,
-                    onChange: (value) => handleChange('applyNSFWBlur', value)
-                })
             )
         );
     }
