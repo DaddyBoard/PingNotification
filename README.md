@@ -22,6 +22,7 @@ Default behaviour with no configuration performed in manual mode:
 - ¬ Mentions
 - ¬ Direct Messages (DMs)
 - ¬ In-line Replies (same as mention)
+  
 ¬ Means regardless of the notification settings of that channel 
 ## ⚙️ Configuration
 
