@@ -37,7 +37,7 @@ And much more!
 ## 📦 Latest Updates
 
 <details open>
-<summary><strong>v6.3 -> 6.3.2</strong></summary>
+<summary><strong>v6.3, 6.3.1, 6.3.2</strong></summary>
 
 - Added proper support for spoilered content (text, images and videos) in notifications
 - Privacy mode rework, is now clearer and more intuitive
