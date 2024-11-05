@@ -19,10 +19,10 @@ Out of the box, PingNotification will be in "Automatic" mode which will alert fo
 
 You have the option to swap to "Manual" mode where you can configure which servers/channels you want to ping for.
 Default behaviour with no configuration performed in manual mode:
-- * Mentions
-- * Direct Messages (DMs)
-- * In-line Replies (same as mention)
-* Means regardless of the notification settings of that channel 
+- ¬ Mentions
+- ¬ Direct Messages (DMs)
+- ¬ In-line Replies (same as mention)
+¬ Means regardless of the notification settings of that channel 
 ## ⚙️ Configuration
 
 Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
