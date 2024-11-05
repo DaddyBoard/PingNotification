@@ -27,13 +27,37 @@ Default behaviour with no configuration performed in manual mode:
 ## ⚙️ Configuration
 
 Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
-- Allow specific servers to notify **all** messages
-- Block individual User IDs
-- Block specific channels
+- Customise coloring of user mentions, role mentions and more.
+- Customise length of notification shown on screen
+- Change display location of the notification window
+- Enable 'Privacy Mode' which hides all message content and attachments behind a `hover-to-reveal` system
+- Configure the ability to apply 'Privacy Mode' to NSFW channels
+And much more!
 
 ## 📦 Latest Updates
 
 <details open>
+<summary><strong>v6.3 -> 6.3.2</strong></summary>
+
+- Added proper support for spoilered content (text, images and videos) in notifications
+- Privacy mode rework, is now clearer and more intuitive
+- Now displays Group DMs as 'Group Chat • {Name}'
+- Added support for threads in automatic mode
+- Now closes all notifications from the same channel/DM when one is clicked
+- Added new setting to color user mentions based on their role color
+- Added new 'automatic' mode that follows Discord's notification settings directly
+- Added new setting to blur all content from NSFW (age restricted) channels, disabled by default
+- Updated changelog to use BetterDiscord's UI components
+- Fixed issue with un-spoilered images not being clickable to invoke transitionTo
+- Fixed role name retrieval for role mentions
+- Fixed issue with role color not being applied to mentions
+- Disabled image draggable property to prevent choppy swipe animation
+- Various other optimizations and fixes. Reduced API calls by roughly 50%. First version of this plugin was very bad at calling the same API multiple times, and with more development over time it was calling the same API multiple times for every single notification
+ 
+**Note:** If you experience issues, fully close Discord and delete 'pingnotification.**config**.json' from your BetterDiscord/plugins folder. Restart Discord to reset the plugin to default settings. You'll need to reconfigure your preferences.
+</details>
+
+<details>
 <summary><strong>v6.2</strong></summary>
 
 - Added context menu items for channels, guilds, threads and users for easy addition/removal from ignored lists
