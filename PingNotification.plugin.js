@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 6.3.1
+ * @version 6.3.2
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -19,14 +19,11 @@ const PermissionStore = BdApi.Webpack.getStore("PermissionStore");
 const SortedGuildStore = BdApi.Webpack.getStore("SortedGuildStore");
 const SelectedChannelStore = Webpack.getStore("SelectedChannelStore");
 const RelationshipStore = Webpack.getStore("RelationshipStore");
-const GuildChannelStore = Webpack.getStore("GuildChannelStore");
 const UserGuildSettingsStore = BdApi.Webpack.getStore("UserGuildSettingsStore");
 const transitionTo = Webpack.getByStrings(["transitionTo - Transitioning to"],{searchExports:true});
 const MessageParserModule = Webpack.getModule(m => m.defaultRules && m.parse);
 const parse = MessageParserModule?.parse;
-const defaultRules = MessageParserModule?.defaultRules;
 const GuildMemberStore = Webpack.getModule(m => m.getMember);
-const ColorConverter = Webpack.getModule(m => m.int2hex);
 const getGuildIconURL = BdApi.Webpack.getModule(m => m.getGuildIconURL)?.getGuildIconURL;
 
 module.exports = class PingNotification {
@@ -66,12 +63,21 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.3.1",
+                version: "6.3.2",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
+                {
+                    title: "6.3.2",
+                    items: [
+                        "Fixed role name retrieval for role mentions.",
+                        "Fixed issue with role color not being applied to mentions.",
+                        "Disabled image draggable property to prevent choppy swipe animation.",
+                        "Various other optimizations and fixes. Reduced API calls by roughly 50%. First version of this plugin was very bad at calling the same API multiple times, and with more development over time it was calling the same API multiple times for every single notification."
+                    ]
+                },
                 {
                     title: "6.3.1",
                     items: [
@@ -1061,7 +1067,8 @@ module.exports = class PingNotification {
                 borderRadius: '4px',
                 marginTop: '8px',
                 filter: isSpoiler ? 'blur(30px)' : 'none',
-                transition: 'filter 0.2s ease'
+                transition: 'filter 0.2s ease',
+                cursor: 'pointer'
             };
 
             const handleSpoilerClick = (e) => {
@@ -1430,13 +1437,7 @@ module.exports = class PingNotification {
                 }
             },
                 isForwardedMessage && React.createElement(ForwardedIcon),
-                parse(getMessageContent(), {
-                    channelId: channel.id,
-                    allowLinks: true,
-                    allowMarkdown: true,
-                    rules: defaultRules,
-                    renderSpoilers: true
-                })
+                parse(getMessageContent(), true, { channelId: channel.id })
             ),
             message.attachments && message.attachments.length > 0 && 
                 renderAttachment(message.attachments[0]),
