@@ -15,7 +15,9 @@ A lightweight BetterDiscord plugin to display in-app notifications that focuses 
 
 ## 🔧 Default Operation
 
-Out of the box, PingNotification works for:
+Out of the box, PingNotification will be in "Automatic" mode which will alert for all messages that you physically here a ping for (aka it follows your discord-level notification settings per guild/channel/user.) 
+
+You have the option to swap to "Manual" mode where you can configure which servers/channels you want to ping for, in manual mode:
 - Mentions
 - Direct Messages (DMs)
 - In-line Replies (same as mention)
