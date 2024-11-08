@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 6.3.2
+ * @version 6.3.3
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -11,20 +11,19 @@
 
 const { React, Webpack, Patcher, Data, Dispatcher, ReactDOM } = BdApi;
 
-
 const UserStore = Webpack.getStore("UserStore");
-const ChannelStore = Webpack.getStore("ChannelStore");
+const ChannelStore = Webpack.getStore("ChannelStore"); 
 const GuildStore = Webpack.getStore("GuildStore");
-const PermissionStore = BdApi.Webpack.getStore("PermissionStore");
-const SortedGuildStore = BdApi.Webpack.getStore("SortedGuildStore");
+const PermissionStore = Webpack.getStore("PermissionStore");
+const SortedGuildStore = Webpack.getStore("SortedGuildStore");
 const SelectedChannelStore = Webpack.getStore("SelectedChannelStore");
 const RelationshipStore = Webpack.getStore("RelationshipStore");
-const UserGuildSettingsStore = BdApi.Webpack.getStore("UserGuildSettingsStore");
+const UserGuildSettingsStore = Webpack.getStore("UserGuildSettingsStore");
 const transitionTo = Webpack.getByStrings(["transitionTo - Transitioning to"],{searchExports:true});
 const MessageParserModule = Webpack.getModule(m => m.defaultRules && m.parse);
 const parse = MessageParserModule?.parse;
 const GuildMemberStore = Webpack.getModule(m => m.getMember);
-const getGuildIconURL = BdApi.Webpack.getModule(m => m.getGuildIconURL)?.getGuildIconURL;
+const getGuildIconURL = Webpack.getModule(m => m.getGuildIconURL)?.getGuildIconURL;
 
 module.exports = class PingNotification {
 
@@ -63,12 +62,19 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.3.2",
+                version: "6.3.3",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
+                {
+                    title: "6.3.3",
+                    items: [
+                        "Cleaned up some inconsistent code.",
+                        "Replaced deprecated BetterDiscord methods with new ones."
+                    ]
+                },
                 {
                     title: "6.3.2",
                     items: [
@@ -142,7 +148,7 @@ module.exports = class PingNotification {
         if (this.settings.mode === "manual") {
             this.patchContextMenus();
         }
-        BdApi.injectCSS("PingNotificationStyles", this.css);
+        BdApi.DOM.addStyle("PingNotificationStyles", this.css);
 
         console.log("PingNotification started");
     }
@@ -151,7 +157,7 @@ module.exports = class PingNotification {
     stop() {
         BdApi.Patcher.unpatchAll("PingNotification");
         this.removeAllNotifications();
-        BdApi.clearCSS("PingNotificationStyles");
+        BdApi.DOM.removeStyle("PingNotificationStyles");
         this.unpatchContextMenus();
         console.log("PingNotification stopped");
     }
