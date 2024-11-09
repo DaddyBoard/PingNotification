@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 6.3.3
+ * @version 6.3.4
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -62,12 +62,18 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.3.3",
+                version: "6.3.4",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
+                {
+                    title: "6.3.4",
+                    items: [
+                        "Fixed issue with embed content not being truncated."
+                    ]
+                },
                 {
                     title: "6.3.3",
                     items: [
@@ -1062,7 +1068,12 @@ module.exports = class PingNotification {
                 });
             }
             if (embed.footer) content.push(`_${embed.footer.text}_`);
-            return content.join('\n');
+
+            let joinedContent = content.join('\n');
+            if (joinedContent.length > 380) {
+                joinedContent = joinedContent.substring(0, 377) + "...";
+            }
+            return joinedContent;
         };
 
         const renderAttachment = (attachment) => {
