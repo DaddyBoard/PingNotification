@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 6.3.4
+ * @version 6.3.5
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -45,7 +45,6 @@ module.exports = class PingNotification {
                 }
             );
 
-            console.log("PingNotification: Changelog modal shown");
         } catch (error) {
             console.error("PingNotification: Error showing changelog", error);
         }
@@ -62,12 +61,18 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.3.4",
+                version: "6.3.5",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
+                {
+                    title: "6.3.5",
+                    items: [
+                        "Cleaned up some code in preperation of incoming submission review."
+                    ]
+                },
                 {
                     title: "6.3.4",
                     items: [
@@ -155,8 +160,6 @@ module.exports = class PingNotification {
             this.patchContextMenus();
         }
         BdApi.DOM.addStyle("PingNotificationStyles", this.css);
-
-        console.log("PingNotification started");
     }
     
 
@@ -165,17 +168,15 @@ module.exports = class PingNotification {
         this.removeAllNotifications();
         BdApi.DOM.removeStyle("PingNotificationStyles");
         this.unpatchContextMenus();
-        console.log("PingNotification stopped");
+
     }
 
     loadSettings() {
         this.settings = { ...this.defaultSettings, ...BdApi.Data.load("PingNotification", "settings") };
-        console.log("Settings loaded:", this.settings);
     }
 
     saveSettings() {
         BdApi.Data.save("PingNotification", "settings", this.settings);
-        console.log("Settings saved:", this.settings);
     }
 
 
@@ -718,8 +719,7 @@ module.exports = class PingNotification {
     
 
     showNotification(message, channel, isForwardedMessage) {
-        console.log("Creating notification element");
-        const notificationElement = document.createElement('div');
+        const notificationElement = BdApi.DOM.createElement('div');
         notificationElement.className = 'ping-notification glow';
         notificationElement.creationTime = Date.now();
         notificationElement.channelId = channel.id;
@@ -1262,9 +1262,12 @@ module.exports = class PingNotification {
                 if (message.message_snapshots && message.message_snapshots.length > 0) {
                     const snapshot = message.message_snapshots[0];
                     content = snapshot.message?.content || '';
-                    
+
                     if (snapshot.message?.embeds && snapshot.message.embeds.length > 0) {
-                        embedContent = snapshot.message.embeds.map(embed => getEmbedContent(embed)).join('\n\n');
+                        embedContent = snapshot.message.embeds
+                            .filter(embed => !embed.url || embed.type !== 'link')
+                            .map(embed => getEmbedContent(embed))
+                            .join('\n\n');
                     }
                 } else {
                     content = 'Unable to retrieve forwarded message content';
@@ -1272,7 +1275,10 @@ module.exports = class PingNotification {
             } else {
                 content = message.content || '';
                 if (message.embeds && message.embeds.length > 0) {
-                    embedContent = message.embeds.map(embed => getEmbedContent(embed)).join('\n\n');
+                    embedContent = message.embeds
+                        .filter(embed => !embed.url || embed.type !== 'link')
+                        .map(embed => getEmbedContent(embed))
+                        .join('\n\n');
                 }
             }
 
@@ -1283,6 +1289,7 @@ module.exports = class PingNotification {
             const finalContent = truncateMessage(content, embedContent) + embedContent;
             return finalContent;
         };
+        
 
         const getProgressColor = () => {
             const green = [67, 181, 129];
