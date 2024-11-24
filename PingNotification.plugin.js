@@ -9,7 +9,7 @@
  * @invite ggNWGDV7e2
  */
 
-const { React, Webpack, Patcher, Data, Dispatcher, ReactDOM } = BdApi;
+const { React, Webpack, ReactDOM } = BdApi;
 
 const UserStore = Webpack.getStore("UserStore");
 const ChannelStore = Webpack.getStore("ChannelStore"); 
@@ -24,6 +24,7 @@ const MessageParserModule = Webpack.getModule(m => m.defaultRules && m.parse);
 const parse = MessageParserModule?.parse;
 const GuildMemberStore = Webpack.getModule(m => m.getMember);
 const getGuildIconURL = Webpack.getModule(m => m.getGuildIconURL)?.getGuildIconURL;
+const Dispatcher = BdApi.Webpack.getByKeys("subscribe", "dispatch")
 
 module.exports = class PingNotification {
 
@@ -61,12 +62,19 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "6.3.5",
+                version: "6.3.6",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
+                {
+                    title: "6.3.6",
+                    items: [
+                        "Removed patchDispatcher method, replaced with a more reliable method of subscribing to the MESSAGE_CREATE event.\n Thank you @doggybootsy for the help with this!",
+                        "Ensured links to things such as youtube etc don't spam a huge embed in the notification popup."
+                    ]
+                },
                 {
                     title: "6.3.5",
                     items: [
@@ -146,6 +154,7 @@ module.exports = class PingNotification {
         }
 
         this.contextMenuPatches = [];
+        this.onMessageReceived = this.onMessageReceived.bind(this);
     }
 
     getName() { return this.config.info.name; }
@@ -154,21 +163,25 @@ module.exports = class PingNotification {
     getVersion() { return this.config.info.version; }
 
     start() {
-        this.loadSettings();
-        this.patchDispatcher();
+        this.loadSettings();        
+        this.messageCreateHandler = (message) => {
+            this.onMessageReceived(message);
+        };
+        Dispatcher.subscribe("MESSAGE_CREATE", this.messageCreateHandler);
+
         if (this.settings.mode === "manual") {
             this.patchContextMenus();
         }
         BdApi.DOM.addStyle("PingNotificationStyles", this.css);
     }
-    
 
     stop() {
-        BdApi.Patcher.unpatchAll("PingNotification");
+        if (Dispatcher) {
+            Dispatcher.unsubscribe("MESSAGE_CREATE", this.messageCreateHandler);
+        }
         this.removeAllNotifications();
         BdApi.DOM.removeStyle("PingNotificationStyles");
         this.unpatchContextMenus();
-
     }
 
     loadSettings() {
@@ -468,14 +481,6 @@ module.exports = class PingNotification {
         }
     `;
 
-    patchDispatcher() {
-        BdApi.Patcher.after("PingNotification", BdApi.findModuleByProps("dispatch"), "dispatch", (_, [event]) => {
-            if (event.type === "MESSAGE_CREATE") {
-                this.onMessageReceived(event.message);
-            }
-        });
-    }
-
     patchContextMenus() {
         this.contextMenuPatches.push(BdApi.ContextMenu.patch("user-context", this.addUserContextMenuItems.bind(this)));
         this.contextMenuPatches.push(BdApi.ContextMenu.patch("guild-context", this.addGuildContextMenuItems.bind(this)));
@@ -616,14 +621,15 @@ module.exports = class PingNotification {
         this.saveSettings();
     }
 
-    onMessageReceived(message) {
+    onMessageReceived(data) {
+        const message = data.message;
         const channel = ChannelStore.getChannel(message.channel_id);
         const currentUser = UserStore.getCurrentUser();
-    
+
         if (!channel || message.author.id === currentUser.id) return;
-    
+
         const isForwardedMessage = (message.flags & 16384) === 16384;
-    
+
         if (this.shouldNotify(message, channel, currentUser)) {
             this.showNotification(message, channel, isForwardedMessage);
         }
@@ -1265,7 +1271,7 @@ module.exports = class PingNotification {
 
                     if (snapshot.message?.embeds && snapshot.message.embeds.length > 0) {
                         embedContent = snapshot.message.embeds
-                            .filter(embed => !embed.url || embed.type !== 'link')
+                            .filter(embed => !embed.url || (embed.type !== 'link' && embed.type !== 'video'))
                             .map(embed => getEmbedContent(embed))
                             .join('\n\n');
                     }
@@ -1276,7 +1282,7 @@ module.exports = class PingNotification {
                 content = message.content || '';
                 if (message.embeds && message.embeds.length > 0) {
                     embedContent = message.embeds
-                        .filter(embed => !embed.url || embed.type !== 'link')
+                        .filter(embed => !embed.url || (embed.type !== 'link' && embed.type !== 'video'))
                         .map(embed => getEmbedContent(embed))
                         .join('\n\n');
                 }
