@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 7.0.0
+ * @version 7.0.1
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -62,12 +62,18 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "7.0.0",
+                version: "7.0.1",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
             changelog: [
+                {
+                    title: "7.0.1",
+                    items: [
+                        "Fixed accidental breakage of mentions, inline replies, role mentions, @everyone, and @here. Sorry about that!"
+                    ]
+                },
                 {
                     title: "7.0.0 - HUGE UPDATE",
                     items: [
@@ -485,7 +491,7 @@ module.exports = class PingNotification {
     `;
 
     onMessageReceived(message) {
-        if (!message?.channel_id) return;
+        if (!message?.channel_id) return;  
         const channel = ChannelStore.getChannel(message.channel_id);
         const currentUser = UserStore.getCurrentUser();
 
@@ -497,7 +503,8 @@ module.exports = class PingNotification {
     }
 
     shouldNotify(message, channel, currentUser) {
-        if (!this.settings.allowNotificationsInCurrentChannel && channel.id === SelectedChannelStore.getChannelId()) {
+        if (!this.settings.allowNotificationsInCurrentChannel && 
+            channel.id === SelectedChannelStore.getChannelId()) {
             return false;
         }
 
@@ -516,18 +523,20 @@ module.exports = class PingNotification {
 
         const channelOverride = UserGuildSettingsStore.getChannelMessageNotifications(channel.guild_id, channel.id);
         const guildDefault = UserGuildSettingsStore.getMessageNotifications(channel.guild_id);
-
         const finalSetting = channelOverride === 3 ? guildDefault : channelOverride;
 
-        const isDirectlyMentioned = message.mentions?.some(mention => mention.id === currentUser.id);
-        const isEveryoneMentioned = message.mention_everyone && 
+        const isDirectlyMentioned = message.mentions?.includes(currentUser.id);
+        const isEveryoneMentioned = message.mentionEveryone && 
             !UserGuildSettingsStore.isSuppressEveryoneEnabled(channel.guild_id);
 
         let isRoleMentioned = false;
-        if (message.mention_roles?.length > 0 && !UserGuildSettingsStore.isSuppressRolesEnabled(channel.guild_id)) {
+        if (message.mentionRoles?.length > 0 && 
+            !UserGuildSettingsStore.isSuppressRolesEnabled(channel.guild_id)) {
             const member = GuildMemberStore.getMember(channel.guild_id, currentUser.id);
-            if (member && member.roles) {
-                isRoleMentioned = message.mention_roles.some(roleId => member.roles.includes(roleId));
+            if (member?.roles) {
+                isRoleMentioned = message.mentionRoles.some(roleId => 
+                    member.roles.includes(roleId)
+                );
             }
         }
 
