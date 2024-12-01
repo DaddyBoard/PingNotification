@@ -17,13 +17,6 @@ A lightweight BetterDiscord plugin to display in-app notifications that focuses 
 
 Out of the box, PingNotification will be in "Automatic" mode which will alert for all messages that you physically hear a ping for (aka it follows your discord-level notification settings per guild/channel/user.) 
 
-You have the option to swap to "Manual" mode where you can configure which servers/channels you want to ping for.
-Default behaviour with no configuration performed in manual mode:
-- ¬ Mentions
-- ¬ Direct Messages (DMs)
-- ¬ In-line Replies (same as mention)
-  
-¬ Means regardless of the notification settings of that channel 
 ## ⚙️ Configuration
 
 Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
@@ -37,6 +30,17 @@ And much more!
 ## 📦 Latest Updates
 
 <details open>
+<summary><strong>v7.0.0 - 7.0.2</strong></summary>
+- Fully rewritten (again) to use MessageAccessories, this allows for near-native rendering of various message components, like embeds, attachments, and more.
+- Now shows in-line reply context (ReferencedMessage)
+- Now supports updating messages (embeds changing, users editing messages)
+- Now also supports tracking reactions to messages!
+- So much more, can't even remember all the stuff I've added!
+- Fixed accidental breakage of mentions, inline replies, role mentions, @everyone, and @here. Sorry about that!
+- Replaced a few old/unsupported methods with ones that are supported - this is needed for approval. Thanks @domi.btnr
+</details>
+
+<details>
 <summary><strong>v6.3, 6.3.1, 6.3.2</strong></summary>
 
 - Added proper support for spoilered content (text, images and videos) in notifications
