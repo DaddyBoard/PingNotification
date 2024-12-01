@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 7.0.1
+ * @version 7.0.2
  * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -62,12 +62,18 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "7.0.1",
+                version: "7.0.2",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
-            changelog: [
+            changelog: [            
+                {
+                    title: "7.0.2",
+                    items: [
+                        "Replaced a few old/unsupported methods with ones that are supported - this is needed for approval. Thanks @domi.btnr"
+                    ]
+                },
                 {
                     title: "7.0.1",
                     items: [
@@ -109,10 +115,10 @@ module.exports = class PingNotification {
 
         this.loadSettings();
         
-        const lastVersion = BdApi.getData('PingNotification', 'lastVersion');
+        const lastVersion = BdApi.Data.load('PingNotification', 'lastVersion');
         if (lastVersion !== this.config.info.version) {
             this.showChangelog();
-            BdApi.setData('PingNotification', 'lastVersion', this.config.info.version);
+            BdApi.Data.save('PingNotification', 'lastVersion', this.config.info.version);
         }
         this.onMessageReceived = this.onMessageReceived.bind(this);
     }
@@ -551,12 +557,13 @@ module.exports = class PingNotification {
     }
 
     showNotification(message, channel) {
-        const notificationElement = BdApi.DOM.createElement('div');
-        notificationElement.className = 'ping-notification';
+        const notificationElement = BdApi.DOM.createElement('div', {
+            className: 'ping-notification',
+            target: document.body
+        });
         notificationElement.creationTime = Date.now();
         notificationElement.channelId = channel.id;
         notificationElement.messageId = message.id;
-        document.body.appendChild(notificationElement);
 
         ReactDOM.render(
             React.createElement(NotificationComponent, {
@@ -978,41 +985,76 @@ module.exports = class PingNotification {
                     style: {
                         display: 'flex',
                         alignItems: 'center',
-                        marginBottom: '4px',
-                        fontSize: '0.75em',
+                        marginBottom: '8px',
+                        fontSize: '0.9em',
                         color: 'var(--text-muted)',
                         paddingLeft: '16px',
-                        position: 'relative'
+                        position: 'relative',
+                        marginTop: '2px'
                     }
                 },
                     React.createElement('div', {
                         style: {
                             position: 'absolute',
                             left: '0',
-                            top: '50%',
+                            bottom: '50%',
                             width: '12px',
-                            height: '12px',
-                            borderLeft: '2px solid var(--interactive-muted)',
-                            borderTop: '2px solid var(--interactive-muted)',
-                            borderTopLeftRadius: '6px',
-                            transform: 'translateY(-50%)'
+                            height: '2px',
+                            backgroundColor: 'var(--background-modifier-accent)',
+                            borderBottomLeftRadius: '6px'
+                        }
+                    }),
+                    React.createElement('div', {
+                        style: {
+                            position: 'absolute',
+                            left: '0',
+                            bottom: '-8px',
+                            width: '2px',
+                            height: 'calc(50% + 8px)',
+                            backgroundColor: 'var(--background-modifier-accent)'
+                        }
+                    }),
+                    React.createElement('img', {
+                        src: message.messageReference.author?.avatar 
+                            ? `https://cdn.discordapp.com/avatars/${message.messageReference.author.id}/${message.messageReference.author.avatar}.png?size=32`
+                            : `https://cdn.discordapp.com/embed/avatars/${parseInt(message.messageReference.author?.discriminator || '0') % 5}.png`,
+                        style: {
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            marginRight: '8px'
                         }
                     }),
                     React.createElement('span', {
                         style: {
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px'
+                            gap: '4px',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.9em'
                         }
                     }, 
-                        "Replying to ",
                         React.createElement('span', {
                             style: {
-                                color: 'var(--text-link)',
+                                color: (() => {
+                                    if (!settings.coloredUsernames || !guild || !message.messageReference.author) return 'var(--header-primary)';
+                                    const member = GuildMemberStore.getMember(guild.id, message.messageReference.author.id);
+                                    if (!member?.roles) return 'var(--header-primary)';
+                                    const getRoles = Webpack.getModule(m => m.getRole);
+                                    const guildRoles = getRoles.getRoles(guild.id);
+                                    if (!guildRoles) return 'var(--header-primary)';
+                                    
+                                    const roles = member.roles
+                                        .map(roleId => guildRoles[roleId])
+                                        .filter(role => role && typeof role.color === 'number' && role.color !== 0);
+                                    
+                                    if (roles.length === 0) return 'var(--header-primary)';
+                                    const colorRole = roles.sort((a, b) => (b.position || 0) - (a.position || 0))[0];
+                                    return colorRole ? `#${colorRole.color.toString(16).padStart(6, '0')}` : 'var(--header-primary)';
+                                })(),
                                 fontWeight: '500'
                             }
-                        }, message.messageReference.author?.username || "message"),
-                        ": ",
+                        }, message.messageReference.author?.username || "Unknown"),
                         React.createElement('span', {
                             style: {
                                 color: 'var(--text-muted)',
@@ -1020,15 +1062,26 @@ module.exports = class PingNotification {
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 display: 'inline-block',
-                                maxWidth: '180px'
+                                maxWidth: '200px'
                             }
-                        }, message.messageReference.message?.content 
-                            ? parse(message.messageReference.message.content
+                        }, (() => {
+                            const refMessage = message.messageReference.message;
+                            if (!refMessage) return "Original message was deleted";
+                            
+                            // Check if message is media-only
+                            if (!refMessage.content && (refMessage.attachments?.length || refMessage.embeds?.length)) {
+                                return "[MEDIA]";
+                            }
+
+                            // Filter out image links from content
+                            const content = refMessage.content?.replace(/https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4)\b/gi, '[MEDIA]');
+                            return content ? parse(content
                                 .replace(/```(?:[\w]*\n)?([^```]+)```/g, '$1')
                                 .replace(/`([^`]+)`/g, '$1')
                                 .replace(/\n/g, ' ')
-                                .trim(), true, { channelId: channel.id })
-                            : "")
+                                .trim(), true, { channelId: channel.id }) 
+                                : "[MEDIA]";
+                        })())
                     )
                 ),
                 React.createElement('span', null,
