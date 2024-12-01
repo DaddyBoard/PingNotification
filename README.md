@@ -31,6 +31,7 @@ And much more!
 
 <details open>
 <summary><strong>v7.0.0 - 7.0.2</strong></summary>
+ 
 - Fully rewritten (again) to use MessageAccessories, this allows for near-native rendering of various message components, like embeds, attachments, and more.
 - Now shows in-line reply context (ReferencedMessage)
 - Now supports updating messages (embeds changing, users editing messages)
@@ -38,6 +39,7 @@ And much more!
 - So much more, can't even remember all the stuff I've added!
 - Fixed accidental breakage of mentions, inline replies, role mentions, @everyone, and @here. Sorry about that!
 - Replaced a few old/unsupported methods with ones that are supported - this is needed for approval. Thanks @domi.btnr
+
 </details>
 
 <details>
