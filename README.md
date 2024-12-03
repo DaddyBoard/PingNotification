@@ -117,7 +117,7 @@ If you encounter any problems, please [open an issue](https://github.com/DaddyBo
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/DaddyBoard/PingNotification/blob/main/LICENSE) file for details.
 
 ## 🤝 Contributing
 
