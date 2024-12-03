@@ -111,7 +111,7 @@ And much more!
 
 ## 🐛 Known Issues
 
-- Stickers do not display in the notification window.
+- Some rare forms of messages dont display (like the default discord messages when someone joins a discord server `Glad you're here, person!`)
 
 If you encounter any problems, please [open an issue](https://github.com/DaddyBoard/PingNotification/issues).
 
