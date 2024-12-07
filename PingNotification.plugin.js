@@ -1,8 +1,8 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 7.0.2
- * @description A BetterDiscord plugin to show in-app notifications for mentions, DMs, and messages in specific guilds.
+ * @version 7.1.0
+ * @description Show in-app notifications for anything you would hear a ping for.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
  * @updateUrl https://github.com/DaddyBoard/PingNotification/blob/main/PingNotification.plugin.js
@@ -25,6 +25,12 @@ const Dispatcher = BdApi.Webpack.getByKeys("subscribe", "dispatch")
 const MessageStore = BdApi.Webpack.getStore("MessageStore");
 const MessageAccessories = BdApi.Webpack.getByPrototypeKeys("renderEmbeds", {searchExports:true});
 const MessageActions = BdApi.Webpack.getByKeys("fetchMessage", "deleteMessage");
+
+const ChannelAckModule = (() => {
+    const filter = BdApi.Webpack.Filters.byStrings("type:\"CHANNEL_ACK\",channelId", "type:\"BULK_ACK\",channels:");
+    const module = BdApi.Webpack.getModule((e, m) => filter(BdApi.Webpack.modules[m.id]));
+    return Object.values(module).find(m => m.toString().includes("type:\"CHANNEL_ACK\",channelId"));
+})();
 
 module.exports = class PingNotification {
 
@@ -62,39 +68,16 @@ module.exports = class PingNotification {
                         github_username: "DaddyBoard",
                     }
                 ],
-                version: "7.0.2",
+                version: "7.1.0",
                 description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
                 github: "https://github.com/DaddyBoard/PingNotification",
                 github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
             },
-            changelog: [            
+            changelog: [
                 {
-                    title: "7.0.2",
+                    title: "7.1.0 - New feature!",
                     items: [
-                        "Replaced a few old/unsupported methods with ones that are supported - this is needed for approval. Thanks @domi.btnr"
-                    ]
-                },
-                {
-                    title: "7.0.1",
-                    items: [
-                        "Fixed accidental breakage of mentions, inline replies, role mentions, @everyone, and @here. Sorry about that!"
-                    ]
-                },
-                {
-                    title: "7.0.0 - HUGE UPDATE",
-                    items: [
-                        "Fully rewritten (again) to use MessageAccessories, this allows for near-native rendering of various message components, like embeds, attachments, and more.",
-                        "Now shows in-line reply context (ReferencedMessage)",
-                        "Now supports updating messages (embeds changing, users editing messages)",
-                        "Now also supports tracking reactions to messages!",
-                        "So much more, can't even remember all the stuff I've added!"
-                    ]
-                },
-                {
-                    title: "6.3.6",
-                    items: [
-                        "Removed patchDispatcher method, replaced with a more reliable method of subscribing to the MESSAGE_CREATE event.\n Thank you @doggybootsy for the help with this!",
-                        "Ensured links to things such as youtube etc don't spam a huge embed in the notification popup."
+                        "Added new setting for `Mark Channel as Read on Close` - this will automatically mark the channel as read when you close the notification."
                     ]
                 }
             ],
@@ -109,7 +92,8 @@ module.exports = class PingNotification {
                 privacyMode: false,
                 coloredUsernames: true,
                 showNicknames: true,
-                applyNSFWBlur: false
+                applyNSFWBlur: false,
+                readChannelOnClose: false
             };
             this.activeNotifications = [];
 
@@ -123,10 +107,6 @@ module.exports = class PingNotification {
         this.onMessageReceived = this.onMessageReceived.bind(this);
     }
 
-    getName() { return this.config.info.name; }
-    getAuthor() { return this.config.info.authors.map(a => a.name).join(", "); }
-    getDescription() { return this.config.info.description; }
-    getVersion() { return this.config.info.version; }
 
     start() {
         this.loadSettings();        
@@ -570,7 +550,8 @@ module.exports = class PingNotification {
                 message: message,
                 channel: channel,
                 settings: this.settings,
-                onClose: () => { 
+                onClose: (isManual) => { 
+                    notificationElement.manualClose = isManual;
                     this.removeNotification(notificationElement);
                 },
                 onClick: () => {
@@ -602,6 +583,9 @@ module.exports = class PingNotification {
 
     removeNotification(notificationElement) {
         if (document.body.contains(notificationElement)) {
+            if (this.settings.readChannelOnClose && notificationElement.manualClose) {
+                ChannelAckModule(notificationElement.channelId);
+            }
             ReactDOM.unmountComponentAtNode(notificationElement);
             document.body.removeChild(notificationElement);
             this.activeNotifications = this.activeNotifications.filter(n => n !== notificationElement);
@@ -683,7 +667,8 @@ module.exports = class PingNotification {
                 message: updatedMessage,
                 channel: ChannelStore.getChannel(updatedMessage.channel_id),
                 settings: this.settings,
-                onClose: () => { 
+                onClose: (isManual) => { 
+                    notificationElement.manualClose = isManual;
                     this.removeNotification(notificationElement);
                 },
                 onClick: () => {
@@ -787,7 +772,7 @@ module.exports = class PingNotification {
                     setRemainingTime(prev => {
                         if (prev <= 100) {
                             clearInterval(interval);
-                            onClose();
+                            onClose(false);
                             return 0;
                         }
                         return prev - 100;
@@ -833,11 +818,19 @@ module.exports = class PingNotification {
                 const threshold = 100;
 
                 if (Math.abs(deltaX) > threshold) {
-                    onSwipe(deltaX > 0 ? 'right' : 'left');
-                    document.removeEventListener('mousemove', handleMove);
-                    document.removeEventListener('mouseup', handleEnd);
-                    document.removeEventListener('touchmove', handleMove);
-                    document.removeEventListener('touchend', handleEnd);
+                    const isRightSwipe = deltaX > 0;
+                    const isLeftSwipe = deltaX < 0;
+                    const isRightLocation = settings.popupLocation.endsWith("Right");
+                    const isLeftLocation = settings.popupLocation.endsWith("Left");
+
+                    if ((isRightSwipe && isRightLocation) || (isLeftSwipe && isLeftLocation)) {
+                        document.removeEventListener('mousemove', handleMove);
+                        document.removeEventListener('mouseup', handleEnd);
+                        document.removeEventListener('touchmove', handleMove);
+                        document.removeEventListener('touchend', handleEnd);
+                        
+                        onClose(true);
+                    }
                 }
             };
 
@@ -921,7 +914,10 @@ module.exports = class PingNotification {
                 ),
                 React.createElement('div', { 
                     className: "ping-notification-close", 
-                    onClick: (e) => { e.stopPropagation(); onClose(); },
+                    onClick: (e) => { 
+                        e.stopPropagation(); 
+                        onClose(true);
+                    },
                     style: {
                         position: 'absolute',
                         top: '12px',
@@ -1068,12 +1064,10 @@ module.exports = class PingNotification {
                             const refMessage = message.messageReference.message;
                             if (!refMessage) return "Original message was deleted";
                             
-                            // Check if message is media-only
                             if (!refMessage.content && (refMessage.attachments?.length || refMessage.embeds?.length)) {
                                 return "[MEDIA]";
                             }
 
-                            // Filter out image links from content
                             const content = refMessage.content?.replace(/https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4)\b/gi, '[MEDIA]');
                             return content ? parse(content
                                 .replace(/```(?:[\w]*\n)?([^```]+)```/g, '$1')
@@ -1189,7 +1183,7 @@ module.exports = class PingNotification {
 
         return React.createElement('div', { className: 'pingNotification-settings' },
             React.createElement('div', { className: 'pingNotification-section' },
-                React.createElement('h3', { className: 'pingNotification-section-title' }, "General Settings"),
+                React.createElement('h3', { className: 'pingNotification-section-title' }, "Behavior Settings"),
 
                 React.createElement('div', { className: 'pingNotification-setting' },
                     React.createElement('label', { className: 'pingNotification-label' }, "Notification Duration"),
@@ -1228,7 +1222,15 @@ module.exports = class PingNotification {
                         React.createElement('option', { value: "bottomLeft" }, "Bottom Left"),
                         React.createElement('option', { value: "bottomRight" }, "Bottom Right")
                     )
-                )
+                ),
+
+                React.createElement('div', { className: 'pingNotification-separator' }),
+
+                React.createElement(Switch, {
+                    label: "Mark Channel as Read on Manual Close",
+                    checked: localSettings.readChannelOnClose,
+                    onChange: (value) => handleChange('readChannelOnClose', value)
+                })
             ),
 
             React.createElement('div', { className: 'pingNotification-section' },
@@ -1266,7 +1268,7 @@ module.exports = class PingNotification {
                     label: "Show Senders Nicknames Instead of Usernames",
                     checked: localSettings.showNicknames,
                     onChange: (value) => handleChange('showNicknames', value)
-                })
+                })               
             )
         );
     }
