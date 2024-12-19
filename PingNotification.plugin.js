@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 7.1.0
+ * @version 7.2.0
  * @description Show in-app notifications for anything you would hear a ping for.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -32,84 +32,224 @@ const ChannelAckModule = (() => {
     return Object.values(module).find(m => m.toString().includes("type:\"CHANNEL_ACK\",channelId"));
 })();
 
-module.exports = class PingNotification {
-
-    showChangelog() {
-        try {
-            const changelogContent = Array.isArray(this.config.changelog) 
-                ? this.config.changelog.map((change, index) => {
-                    const isNew = index === 0;
-                    return `# __v${change.title}__ ${isNew ? '🆕' : ''}\r\n\r\n${change.items.map(item => `• ${item}`).join('\r\n\r\n')}`;
-                }).join('\r\n\r\n\r\n')
-                : "No changelog available.";
-
-            BdApi.UI.showConfirmationModal(
-                "PingNotification Changelog",
-                changelogContent,
+const config = {
+    changelog: [
+        {
+            title: "Added",
+            type: "added",
+            items: [
+                "New setting to disable media interaction in notifications.",
+                "New `Advanced Settings` category to customize notification dimensions.",
+                "New setting to enable/disable the timer of the notification(numbers, not the progress bar).",
+                "New setting to choose between username or display name in notifications, where nickname is not available or setting `Show Nicknames` is disabled."
+            ]
+        },
+        {
+            title: "Fixed",
+            type: "fixed",
+            items: [
+                "Fixed fullscreening videos in notifications."
+            ]
+        },
+        {
+            title: "Improvements",
+            type: "improved",
+            items: [
+                "Moved all custom changelog and settings to BdApi.",
+                "Made settings collapsible.",
+                "If media exists in a reply, it will now display the same img icon as discord instead of `[MEDIA]` in the notification."
+            ]
+        },
+    ],
+    settings: [
+        {
+            type: "category",
+            id: "behavior",
+            name: "Behavior Settings",
+            collapsible: true,
+            shown: false,
+            settings: [
                 {
-                    confirmText: "Close",
-                    cancelText: null
-                }
-            );
-
-        } catch (error) {
-            console.error("PingNotification: Error showing changelog", error);
-        }
-    }
-
-    constructor() {
-        this.config = {
-            info: {
-                name: "PingNotification",
-                authors: [
-                    {
-                        name: "DaddyBoard",
-                        discord_id: "241334335884492810",
-                        github_username: "DaddyBoard",
-                    }
-                ],
-                version: "7.1.0",
-                description: "Shows in-app notifications for mentions, DMs, and messages in specific guilds with React components.",
-                github: "https://github.com/DaddyBoard/PingNotification",
-                github_raw: "https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js"
-            },
-            changelog: [
+                    type: "slider", 
+                    id: "duration",
+                    name: "Notification Duration",
+                    note: "How long notifications stay on screen (in seconds)",
+                    value: 15,
+                    min: 1,
+                    max: 60,
+                    markers: [1, 20, 40, 60],
+                    units: "s",
+                    defaultValue: 15,
+                    stickToMarkers: false
+                },
                 {
-                    title: "7.1.0 - New feature!",
-                    items: [
-                        "Added new setting for `Mark Channel as Read on Close` - this will automatically mark the channel as read when you close the notification."
+                    type: "dropdown",
+                    id: "popupLocation",
+                    name: "Popup Location",
+                    note: "Where notifications appear on screen",
+                    value: "bottomRight",
+                    options: [
+                        { label: "Top Left", value: "topLeft" },
+                        { label: "Top Right", value: "topRight" },
+                        { label: "Bottom Left", value: "bottomLeft" },
+                        { label: "Bottom Right", value: "bottomRight" }
                     ]
+                },
+                {
+                    type: "switch",
+                    id: "readChannelOnClose",
+                    name: "Mark Channel as Read on Close",
+                    note: "Automatically mark the channel as read when closing a notification",
+                    value: false
+                },
+                {
+                    type: "switch",
+                    id: "disableMediaInteraction",
+                    name: "Disable Media Interaction",
+                    note: "Make all clicks navigate to the message instead of allowing media interaction",
+                    value: false
+                },
+                {
+                    type: "switch",
+                    id: "allowNotificationsInCurrentChannel",
+                    name: "Current Channel Notifications",
+                    note: "Show notifications for the channel you're currently viewing",
+                    value: false
                 }
-            ],
-            main: "index.js"
-        };
-
-
-        this.defaultSettings = {
-                duration: 15000,
-                popupLocation: "bottomRight",
-                allowNotificationsInCurrentChannel: false,
-                privacyMode: false,
-                coloredUsernames: true,
-                showNicknames: true,
-                applyNSFWBlur: false,
-                readChannelOnClose: false
-            };
-            this.activeNotifications = [];
-
-        this.loadSettings();
-        
-        const lastVersion = BdApi.Data.load('PingNotification', 'lastVersion');
-        if (lastVersion !== this.config.info.version) {
-            this.showChangelog();
-            BdApi.Data.save('PingNotification', 'lastVersion', this.config.info.version);
+            ]
+        },
+        {
+            type: "category", 
+            id: "appearance",
+            name: "Appearance Settings",
+            collapsible: true,
+            shown: false,
+            settings: [
+                {
+                    type: "switch",
+                    id: "privacyMode",
+                    name: "Privacy Mode",
+                    note: "Blur notification content until hovered",
+                    value: false
+                },
+                {
+                    type: "switch",
+                    id: "applyNSFWBlur",
+                    name: "Blur NSFW Content",
+                    note: "Blur content from NSFW channels",
+                    value: false
+                },
+                {
+                    type: "switch",
+                    id: "showTimer",
+                    name: "Show Timer",
+                    note: "Show the seconds left of the notification(numbers, not the progress bar)",
+                    value: true
+                }
+            ]
+        },
+        {
+            type: "category",
+            id: "userStyling",
+            name: "User Styling",
+            collapsible: true,
+            shown: false,
+            settings: [
+                {
+                    type: "switch",
+                    id: "coloredUsernames",
+                    name: "Colored Usernames",
+                    note: "Show usernames in their role colors",
+                    value: true
+                },
+                {
+                    type: "switch",
+                    id: "showNicknames",
+                    name: "Show Nicknames",
+                    note: "Use server nicknames instead of usernames",
+                    value: true
+                },
+                {
+                    type: "switch",
+                    id: "usernameOrDisplayName",
+                    name: "Use Display Name",
+                    note: "Show the display name instead of the username. On = Display Name, Off = Username",
+                    value: false
+                }
+            ]
+        },
+        {
+            type: "category",
+            id: "advancedSettings",
+            name: "Advanced Settings",
+            collapsible: true,
+            shown: false,
+            settings: [
+                {
+                    type: "slider",
+                    id: "maxWidth",
+                    name: "Notification Width",
+                    note: "Default: 370px",
+                    value: 370,
+                    min: 100,
+                    max: 400,
+                    markers: [100, 200, 300, 370, 400],
+                    units: "px",
+                    defaultValue: 370,
+                    stickToMarkers: false
+                },
+                {
+                    type: "slider",
+                    id: "maxHeight",
+                    name: "Notification Height",
+                    note: "Default: 300px",
+                    value: 300,
+                    min: 200,
+                    max: 600,
+                    markers: [200, 300, 400, 500, 600],
+                    units: "px",
+                    defaultValue: 300,
+                    stickToMarkers: false
+                }
+            ]
         }
+    ]
+};
+
+module.exports = class PingNotification {
+    constructor(meta) {
+        this.meta = meta;
+        this.defaultSettings = {
+            duration: 15000,
+            maxWidth: 370,
+            maxHeight: 300,
+            popupLocation: "bottomRight",
+            allowNotificationsInCurrentChannel: false,
+            privacyMode: false,
+            coloredUsernames: true,
+            showNicknames: true,
+            applyNSFWBlur: false,
+            readChannelOnClose: false,
+            disableMediaInteraction: false,
+            showTimer: true,
+            usernameOrDisplayName: true
+        };
+        this.settings = this.loadSettings();
+        this.activeNotifications = [];
+
         this.onMessageReceived = this.onMessageReceived.bind(this);
     }
 
-
     start() {
-        this.loadSettings();        
+        const lastVersion = BdApi.Data.load('PingNotification', 'lastVersion');
+        if (lastVersion !== this.meta.version) {
+            BdApi.UI.showChangelogModal({
+                title: this.meta.name,
+                subtitle: this.meta.version,
+                changes: config.changelog
+            });
+            BdApi.Data.save('PingNotification', 'lastVersion', this.meta.version);
+        }     
         this.messageCreateHandler = async (event) => {
             if (!event?.message) return;
             try {
@@ -224,18 +364,19 @@ module.exports = class PingNotification {
     }
 
     loadSettings() {
-        this.settings = { ...this.defaultSettings, ...BdApi.Data.load("PingNotification", "settings") };
+        const savedSettings = BdApi.Data.load('PingNotification', 'settings');
+        return Object.assign({}, this.defaultSettings, savedSettings);
     }
 
-    saveSettings() {
-        BdApi.Data.save("PingNotification", "settings", this.settings);
+    saveSettings(newSettings) {
+        this.settings = newSettings;
+        BdApi.Data.save('PingNotification', 'settings', newSettings);
     }
 
 
     css = `
+
         .ping-notification {
-            position: fixed;
-            width: 370px;
             background-color: rgba(30, 31, 34, 0.95);
             color: var(--text-normal);
             border-radius: 12px;
@@ -321,88 +462,6 @@ module.exports = class PingNotification {
         .ping-notification-content.privacy-mode:hover .ping-notification-attachment {
             filter: blur(0);
         }
-        .pingNotification-settings {
-            padding: 20px;
-            color: var(--text-normal);
-            font-family: var(--font-primary);
-        }
-        .pingNotification-section {
-            background-color: var(--background-secondary);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .pingNotification-section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-        .pingNotification-setting {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-        }
-        .pingNotification-separator {
-            height: 1px;
-            background-color: var(--background-modifier-accent);
-            margin: 5px 0;
-        }
-        .pingNotification-label {
-            font-size: 14px;
-        }
-        .pingNotification-switch {
-            width: 25.5px;
-            height: 15.5px;
-            background-color: rgba(255, 77, 77, 0.5);
-            border-radius: 7.75px;
-            position: relative;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .pingNotification-switch.checked {
-            background-color: rgba(76, 217, 100, 0.5);
-        }
-        .pingNotification-switch-slider {
-            width: 13.5px;
-            height: 13.5px;
-            background-color: var(--background-primary);
-            border-radius: 50%;
-            position: absolute;
-            top: 1px;
-            left: 1px;
-            transition: transform 0.3s;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-        }
-        .pingNotification-switch.checked .pingNotification-switch-slider {
-            transform: translateX(10px);
-        }
-        .pingNotification-duration {
-            display: flex;
-            align-items: center;
-        }
-        .pingNotification-slider {
-            flex-grow: 1;
-            margin-right: 10px;
-        }
-        .pingNotification-duration-input {
-            width: 50px;
-            text-align: center;
-            background-color: var(--background-tertiary);
-            border: none;
-            border-radius: 5px;
-            color: var(--text-normal);
-            padding: 5px;
-            margin-right: 5px;
-        }
-        .pingNotification-select {
-            background-color: var(--background-tertiary);
-            color: var(--text-normal);
-            border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
-            font-size: 14px;
-        }
 
         .ping-notification .spoilerContent_aa9639,
         .ping-notification .spoilerMarkdownContent_aa9639 {
@@ -419,7 +478,7 @@ module.exports = class PingNotification {
         .ping-notification-media [class*="wrapper"],
         .ping-notification-media [class*="imageWrapper"] {
             max-width: 100% !important;
-            max-height: 250px !important;
+            height: auto !important;
             object-fit: contain !important;
             pointer-events: auto !important;
             -webkit-user-drag: none !important;
@@ -473,6 +532,20 @@ module.exports = class PingNotification {
             word-break: normal;
             word-wrap: normal;
             line-height: 1.45;
+        }
+
+        .ping-notification-media.disable-interaction * {
+            pointer-events: none !important;
+            user-select: none !important;
+            -webkit-user-drag: none !important;
+        }
+
+        .ping-notification-media.disable-interaction [class*="imageWrapper"],
+        .ping-notification-media.disable-interaction [class*="clickableMedia"],
+        .ping-notification-media.disable-interaction [class*="imageContainer"],
+        .ping-notification-media.disable-interaction [class*="videoContainer"],
+        .ping-notification-media.disable-interaction [class*="wrapper"] {
+            cursor: pointer !important;
         }
     `;
 
@@ -651,28 +724,61 @@ module.exports = class PingNotification {
     }
 
     getSettingsPanel() {
-        return BdApi.React.createElement(SettingsPanel, {
-            settings: this.settings,
-            onSettingsChange: (newSettings) => {
-                this.settings = newSettings;
-                this.saveSettings();
-                this.adjustNotificationPositions();
+        const settingsConfig = JSON.parse(JSON.stringify(config.settings));
+        
+        settingsConfig.forEach(category => {
+            if (category.settings) {
+                category.settings.forEach(setting => {
+                    if (setting.id === 'duration') {
+                        setting.value = this.settings.duration / 1000;
+                    } else {
+                        setting.value = this.settings[setting.id];
+                    }
+                    
+                    if (['maxWidth', 'maxHeight', 'showTimer', 'privacyMode', 'popupLocation', 'usernameOrDisplayName'].includes(setting.id)) {
+                        setting.onChange = (value) => {
+                            this.settings[setting.id] = value;
+                            this.saveSettings(this.settings);
+                            
+                            const testNotification = this.activeNotifications.find(n => n.isTest);
+                            if (testNotification) {
+                                this.updateNotification(testNotification, testNotification.testMessage, testNotification.testChannel);
+                            } else {
+                                this.showTestNotification();
+                            }
+                        };
+                    }
+                });
+            }
+        });
+
+        return BdApi.UI.buildSettingsPanel({
+            settings: settingsConfig,
+            onChange: (category, id, value) => {
+                if (id === 'duration') {
+                    this.settings[id] = value * 1000;
+                } else {
+                    this.settings[id] = value;
+                }
+                this.saveSettings(this.settings);
             }
         });
     }
 
-    updateNotification(notificationElement, updatedMessage) {
+    updateNotification(notificationElement, updatedMessage, channel) {
         ReactDOM.render(
             React.createElement(NotificationComponent, {
                 message: updatedMessage,
-                channel: ChannelStore.getChannel(updatedMessage.channel_id),
+                channel: updatedMessage.isTestMessage ? channel : ChannelStore.getChannel(updatedMessage.channel_id),
                 settings: this.settings,
                 onClose: (isManual) => { 
                     notificationElement.manualClose = isManual;
                     this.removeNotification(notificationElement);
                 },
                 onClick: () => {
-                    this.onNotificationClick(ChannelStore.getChannel(updatedMessage.channel_id), updatedMessage);
+                    if (!updatedMessage.isTestMessage) {
+                        this.onNotificationClick(ChannelStore.getChannel(updatedMessage.channel_id), updatedMessage);
+                    }
                     this.removeNotification(notificationElement);
                 },
                 onImageLoad: () => {
@@ -696,6 +802,55 @@ module.exports = class PingNotification {
                 });
             }
         );
+    }
+
+    showTestNotification() {
+        this.activeNotifications = this.activeNotifications.filter(n => {
+            if (n.isTest) {
+                ReactDOM.unmountComponentAtNode(n);
+                document.body.removeChild(n);
+                return false;
+            }
+            return true;
+        });
+
+        const currentUser = UserStore.getCurrentUser();
+        const testMessage = {
+            id: "test-message",
+            content: "",
+            plainText: "This is a test notification to help visualize the changes you are making.\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. \n\nSed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?",
+            author: currentUser,
+            timestamp: new Date(),
+            attachments: [],
+            embeds: [{
+                type: "image",
+                url: "https://discord.com/assets/0a00e865c445d42dfb9f.svg",
+                thumbnail: {
+                    url: "https://discord.com/assets/0a00e865c445d42dfb9f.svg",
+                    width: 300,
+                    height: 300
+                }
+            }],
+            mentions: [],
+            mention_roles: [],
+            mention_everyone: false,
+            messageReference: null,
+            flags: 0,
+            isTestMessage: true
+        };
+
+        const testChannel = {
+            id: "test-channel",
+            name: "Test Channel",
+            guild_id: null,
+            type: 0,
+            nsfw: false
+        };
+
+        const notification = this.showNotification(testMessage, testChannel);
+        notification.isTest = true;
+        notification.testMessage = testMessage;
+        notification.testChannel = testChannel;
     }
 }
 
@@ -756,8 +911,11 @@ module.exports = class PingNotification {
             if (settings.showNicknames && member?.nick) {
                 return member.nick;
             }
+            if (settings.usernameOrDisplayName) {
+                return message.author.globalName;
+            }
             return message.author.username;
-        }, [settings.showNicknames, member?.nick, message.author.username]);
+        }, [settings.showNicknames, member?.nick, message.author.username, settings.usernameOrDisplayName]);
 
         const avatarUrl = React.useMemo(() => {
             return message.author.avatar
@@ -847,6 +1005,27 @@ module.exports = class PingNotification {
             document.addEventListener('touchend', handleEnd);
         };
 
+        const baseWidth = 370;
+        const baseHeight = 300;
+        
+        const scaleFactor = Math.min(
+            Math.max(0.8, settings.maxWidth / baseWidth),
+            Math.max(0.8, settings.maxHeight / baseHeight)
+        );
+        
+        const getDynamicScale = (scale) => {
+            return 1 + (Math.log1p(scale - 1) * 0.5);
+        };
+        
+        const dynamicScale = getDynamicScale(scaleFactor);
+
+        const avatarSize = Math.round(40 * dynamicScale);
+        const headerFontSize = Math.round(16 * dynamicScale);
+        const subheaderFontSize = Math.round(12 * dynamicScale);
+        const contentFontSize = Math.round(14 * dynamicScale);
+        const replyFontSize = Math.round(13 * dynamicScale);
+        const mediaMaxHeight = Math.min(250 * dynamicScale, settings.maxHeight * 0.6);
+
         return React.createElement('div', {
             className: `ping-notification-content ${
                 settings.privacyMode || (settings.applyNSFWBlur && (channel.nsfw || channel.nsfw_)) 
@@ -861,9 +1040,11 @@ module.exports = class PingNotification {
             style: { 
                 position: 'relative', 
                 overflow: 'hidden', 
-                padding: '16px', 
-                paddingBottom: '24px',
-                minHeight: '80px',
+                padding: `${Math.round(16 * dynamicScale)}px`,
+                paddingBottom: `${Math.round(24 * dynamicScale)}px`,
+                minHeight: `${Math.round(80 * dynamicScale)}px`,
+                width: `${settings.maxWidth}px`,
+                maxHeight: `${settings.maxHeight}px`,
                 display: 'flex',
                 flexDirection: 'column',
                 backgroundColor: 'rgba(30, 31, 34, 0.95)',
@@ -874,6 +1055,7 @@ module.exports = class PingNotification {
                 transition: 'all 0.3s ease',
                 userSelect: 'none',
                 WebkitUserDrag: 'none',
+                zIndex: settings.disableMediaInteraction ? 2 : 'auto'
             }
         },
             React.createElement('div', { className: "ping-notification-header" },
@@ -882,11 +1064,10 @@ module.exports = class PingNotification {
                     alt: "Avatar", 
                     className: "ping-notification-avatar",
                     style: {
-                        width: '40px',
-                        height: '40px',
+                        width: `${avatarSize}px`,
+                        height: `${avatarSize}px`,
                         borderRadius: '50%',
-                        border: '2px solid var(--brand-experiment)',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                        border: `${Math.round(2 * dynamicScale)}px solid var(--brand-experiment)`,
                     }
                 }),
                 React.createElement('div', { 
@@ -894,20 +1075,20 @@ module.exports = class PingNotification {
                     style: { 
                         display: 'flex', 
                         flexDirection: 'column',
-                        marginLeft: '12px'
+                        marginLeft: `${Math.round(12 * dynamicScale)}px`
                     }
                 },
                     React.createElement('span', {
                         style: {
-                            fontSize: '16px',
+                            fontSize: `${headerFontSize}px`,
                             fontWeight: 'bold',
                             color: settings.coloredUsernames && roleColor ? roleColor : 'var(--header-primary)',
-                            marginBottom: '2px'
+                            marginBottom: `${Math.round(2 * dynamicScale)}px`
                         }
                     }, displayName),
                     React.createElement('span', {
                         style: {
-                            fontSize: '12px',
+                            fontSize: `${subheaderFontSize}px`,
                             color: 'var(--text-muted)'
                         }
                     }, notificationTitle)
@@ -958,11 +1139,11 @@ module.exports = class PingNotification {
                 className: "ping-notification-body",
                 style: { 
                     flex: 1, 
-                    marginTop: '12px',
-                    marginBottom: '8px',
-                    fontSize: '14px',
+                    marginTop: `${Math.round(12 * dynamicScale)}px`,
+                    marginBottom: `${Math.round(8 * dynamicScale)}px`,
+                    fontSize: `${contentFontSize}px`,
                     lineHeight: '1.4',
-                    maxHeight: '300px',
+                    maxHeight: `${settings.maxHeight - (100 * dynamicScale)}px`,
                     overflowY: 'hidden',
                     transition: 'overflow-y 0.2s ease',
                     whiteSpace: 'pre-wrap',
@@ -982,7 +1163,7 @@ module.exports = class PingNotification {
                         display: 'flex',
                         alignItems: 'center',
                         marginBottom: '8px',
-                        fontSize: '0.9em',
+                        fontSize: `${replyFontSize}px`,
                         color: 'var(--text-muted)',
                         paddingLeft: '16px',
                         position: 'relative',
@@ -1027,7 +1208,9 @@ module.exports = class PingNotification {
                             alignItems: 'center',
                             gap: '4px',
                             color: 'var(--text-muted)',
-                            fontSize: '0.9em'
+                            fontSize: '0.9em',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden'
                         }
                     }, 
                         React.createElement('span', {
@@ -1048,7 +1231,8 @@ module.exports = class PingNotification {
                                     const colorRole = roles.sort((a, b) => (b.position || 0) - (a.position || 0))[0];
                                     return colorRole ? `#${colorRole.color.toString(16).padStart(6, '0')}` : 'var(--header-primary)';
                                 })(),
-                                fontWeight: '500'
+                                fontWeight: '500',
+                                flexShrink: 0
                             }
                         }, message.messageReference.author?.username || "Unknown"),
                         React.createElement('span', {
@@ -1057,29 +1241,57 @@ module.exports = class PingNotification {
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
-                                display: 'inline-block',
-                                maxWidth: '200px'
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                maxWidth: '100%'
                             }
                         }, (() => {
                             const refMessage = message.messageReference.message;
                             if (!refMessage) return "Original message was deleted";
                             
+                            const mediaIcon = React.createElement('svg', {
+                                width: '16',
+                                height: '16',
+                                viewBox: '0 0 24 24',
+                                style: {
+                                    flexShrink: 0,
+                                    color: 'var(--text-muted)'
+                                }
+                            }, React.createElement('path', {
+                                fill: 'currentColor',
+                                fillRule: 'evenodd',
+                                d: 'M2 5a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5Zm13.35 8.13 3.5 4.67c.37.5.02 1.2-.6 1.2H5.81a.75.75 0 0 1-.59-1.22l1.86-2.32a1.5 1.5 0 0 1 2.34 0l.5.64 2.23-2.97a2 2 0 0 1 3.2 0ZM10.2 5.98c.23-.91-.88-1.55-1.55-.9a.93.93 0 0 1-1.3 0c-.67-.65-1.78-.01-1.55.9a.93.93 0 0 1-.65 1.12c-.9.26-.9 1.54 0 1.8.48.14.77.63.65 1.12-.23.91.88 1.55 1.55.9a.93.93 0 0 1 1.3 0c.67.65 1.78.01 1.55-.9a.93.93 0 0 1 .65-1.12c.9-.26.9-1.54 0-1.8a.93.93 0 0 1-.65-1.12Z',
+                                clipRule: 'evenodd'
+                            }));
+
                             if (!refMessage.content && (refMessage.attachments?.length || refMessage.embeds?.length)) {
-                                return "[MEDIA]";
+                                return [mediaIcon];
                             }
 
-                            const content = refMessage.content?.replace(/https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4)\b/gi, '[MEDIA]');
-                            return content ? parse(content
-                                .replace(/```(?:[\w]*\n)?([^```]+)```/g, '$1')
-                                .replace(/`([^`]+)`/g, '$1')
-                                .replace(/\n/g, ' ')
-                                .trim(), true, { channelId: channel.id }) 
-                                : "[MEDIA]";
+                            const mediaRegex = /https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4|webm|mov|mkv|avi|flv|wmv|m4v)\b/gi;
+                            let content = refMessage.content || '';
+                            const hasMediaLinks = mediaRegex.test(content);
+                            content = content.replace(mediaRegex, '').trim();
+
+                            if (content) {
+                                const parsedContent = parse(content
+                                    .replace(/```(?:[\w]*\n)?([^```]+)```/g, '$1')
+                                    .replace(/`([^`]+)`/g, '$1')
+                                    .replace(/\n/g, ' ')
+                                    .trim(), true, { channelId: channel.id });
+                                
+                                return [parsedContent, (hasMediaLinks || refMessage.attachments?.length || refMessage.embeds?.length) ? mediaIcon : null];
+                            }
+
+                            return [mediaIcon];
                         })())
                     )
                 ),
                 React.createElement('span', null,
-                    parse(message.content || '', true, { channelId: channel.id, allowLinks: true }),
+                    message.isTestMessage ? 
+                        message.plainText : 
+                        parse(message.content || '', true, { channelId: channel.id, allowLinks: true }),
                     message.editedTimestamp && React.createElement('span', {
                         style: {
                             fontSize: '0.625rem',
@@ -1089,14 +1301,15 @@ module.exports = class PingNotification {
                     }, '(edited)')
                 ),
                 React.createElement('div', {
+                    className: 'ping-notification-media-container',
                     style: {
-                        maxWidth: '100%',
-                        maxHeight: '300px',
-                        overflow: 'hidden',
+                        width: '100%',
+                        position: 'relative',
+                        zIndex: settings.disableMediaInteraction ? 1 : 'auto'
                     },
-                    onClick: (e) => e.stopPropagation()
+                    onClick: (e) => settings.disableMediaInteraction ? null : e.stopPropagation()
                 },
-                    React.createElement(MessageAccessories, {
+                    !message.isTestMessage && React.createElement(MessageAccessories, {
                         message: message,
                         channel: channel,
                         inlineEmbedMedia: true,
@@ -1114,7 +1327,10 @@ module.exports = class PingNotification {
                         canDeleteAttachments: false,
                         gifAutoPlay: true,
                         onMediaItemContextMenu: (e) => e.preventDefault(),
-                        className: "ping-notification-media"
+                        className: `ping-notification-media${settings.disableMediaInteraction ? ' disable-interaction' : ''}`,
+                        style: {
+                            fontSize: `${contentFontSize}px`,
+                        }
                     })
                 )
             ),
@@ -1151,124 +1367,12 @@ module.exports = class PingNotification {
                     fontWeight: 'bold',
                     backgroundColor: 'rgba(0, 0, 0, 0.4)',
                     padding: '2px 6px',
-                    borderRadius: '10px'
+                    borderRadius: '10px',
+                    display: settings.showTimer ? 'block' : 'none'
                 }
             }, `${Math.round(remainingTime / 1000)}s`),
             settings.privacyMode && React.createElement('div', {
                 className: 'ping-notification-hover-text'
             }, "Hover to unblur")
-        );
-    }
-
-    function SettingsPanel({ settings, onSettingsChange }) {
-        const [localSettings, setLocalSettings] = React.useState(settings);
-
-        const handleChange = (key, value) => {
-            const newSettings = { ...localSettings, [key]: value };
-            setLocalSettings(newSettings);
-            onSettingsChange(newSettings);
-        };
-
-        const Switch = ({ label, checked, onChange }) => (
-            React.createElement('div', { className: 'pingNotification-setting' },
-                React.createElement('label', { className: 'pingNotification-label' }, label),
-                React.createElement('div', { 
-                    className: `pingNotification-switch ${checked ? 'checked' : ''}`,
-                    onClick: () => onChange(!checked)
-                },
-                    React.createElement('div', { className: 'pingNotification-switch-slider' })
-                )
-            )
-        );
-
-        return React.createElement('div', { className: 'pingNotification-settings' },
-            React.createElement('div', { className: 'pingNotification-section' },
-                React.createElement('h3', { className: 'pingNotification-section-title' }, "Behavior Settings"),
-
-                React.createElement('div', { className: 'pingNotification-setting' },
-                    React.createElement('label', { className: 'pingNotification-label' }, "Notification Duration"),
-                    React.createElement('div', { className: 'pingNotification-duration' },
-                        React.createElement('input', {
-                            type: 'range',
-                            min: 1,
-                            max: 60,
-                            value: localSettings.duration / 1000,
-                            onChange: (e) => handleChange('duration', e.target.value * 1000),
-                            className: 'pingNotification-slider'
-                        }),
-                        React.createElement('input', {
-                            type: 'number',
-                            min: 1,
-                            max: 60,
-                            value: localSettings.duration / 1000,
-                            onChange: (e) => handleChange('duration', Math.min(60, Math.max(1, parseInt(e.target.value))) * 1000),
-                            className: 'pingNotification-duration-input'
-                        }),
-                        React.createElement('span', { className: 'pingNotification-duration-label' }, "seconds")
-                    )
-                ),
-
-                React.createElement('div', { className: 'pingNotification-separator' }),
-
-                React.createElement('div', { className: 'pingNotification-setting' },
-                    React.createElement('label', { className: 'pingNotification-label' }, "Popup Location"),
-                    React.createElement('select', {
-                        value: localSettings.popupLocation,
-                        onChange: (e) => handleChange('popupLocation', e.target.value),
-                        className: 'pingNotification-select'
-                    },
-                        React.createElement('option', { value: "topLeft" }, "Top Left"),
-                        React.createElement('option', { value: "topRight" }, "Top Right"),
-                        React.createElement('option', { value: "bottomLeft" }, "Bottom Left"),
-                        React.createElement('option', { value: "bottomRight" }, "Bottom Right")
-                    )
-                ),
-
-                React.createElement('div', { className: 'pingNotification-separator' }),
-
-                React.createElement(Switch, {
-                    label: "Mark Channel as Read on Manual Close",
-                    checked: localSettings.readChannelOnClose,
-                    onChange: (value) => handleChange('readChannelOnClose', value)
-                })
-            ),
-
-            React.createElement('div', { className: 'pingNotification-section' },
-                React.createElement('h3', { className: 'pingNotification-section-title' }, "Appearance"),
-
-                React.createElement(Switch, {
-                    label: "Privacy Mode",
-                    checked: localSettings.privacyMode,
-                    onChange: (value) => handleChange('privacyMode', value)
-                }),
-                React.createElement('div', { className: 'pingNotification-separator' }),
-
-                React.createElement(Switch, {
-                    label: "Blur Content from NSFW Channels",
-                    checked: localSettings.applyNSFWBlur,
-                    onChange: (value) => handleChange('applyNSFWBlur', value)
-                }),
-                React.createElement('div', { className: 'pingNotification-separator' }),
-
-                React.createElement(Switch, {
-                    label: "Allow Notifications in Current Channel",
-                    checked: localSettings.allowNotificationsInCurrentChannel,
-                    onChange: (value) => handleChange('allowNotificationsInCurrentChannel', value)
-                }),
-                React.createElement('div', { className: 'pingNotification-separator' }),
-
-                React.createElement(Switch, {
-                    label: "Colored Senders Usernames",
-                    checked: localSettings.coloredUsernames,
-                    onChange: (value) => handleChange('coloredUsernames', value)
-                }),
-                React.createElement('div', { className: 'pingNotification-separator' }),
-
-                React.createElement(Switch, {
-                    label: "Show Senders Nicknames Instead of Usernames",
-                    checked: localSettings.showNicknames,
-                    onChange: (value) => handleChange('showNicknames', value)
-                })               
-            )
         );
     }
