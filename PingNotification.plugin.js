@@ -912,6 +912,9 @@ module.exports = class PingNotification {
                 return member.nick;
             }
             if (settings.usernameOrDisplayName) {
+                if (!message.author.globalName) {
+                    return message.author.username;
+                }
                 return message.author.globalName;
             }
             return message.author.username;
