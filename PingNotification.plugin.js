@@ -724,7 +724,7 @@ module.exports = class PingNotification {
     }
 
     getSettingsPanel() {
-        const settingsConfig = JSON.parse(JSON.stringify(config.settings));
+        const settingsConfig = structuredClone(config.settings);
         
         settingsConfig.forEach(category => {
             if (category.settings) {
@@ -822,15 +822,7 @@ module.exports = class PingNotification {
             author: currentUser,
             timestamp: new Date(),
             attachments: [],
-            embeds: [{
-                type: "image",
-                url: "https://discord.com/assets/0a00e865c445d42dfb9f.svg",
-                thumbnail: {
-                    url: "https://discord.com/assets/0a00e865c445d42dfb9f.svg",
-                    width: 300,
-                    height: 300
-                }
-            }],
+            embeds: [],
             mentions: [],
             mention_roles: [],
             mention_everyone: false,
