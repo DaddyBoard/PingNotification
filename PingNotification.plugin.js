@@ -377,7 +377,7 @@ module.exports = class PingNotification {
     css = `
 
         .ping-notification {
-            background-color: rgba(30, 31, 34, 0.95);
+            background-color: var(--background-tertiary);
             color: var(--text-normal);
             border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(255, 255, 255, 0.1);
@@ -417,6 +417,7 @@ module.exports = class PingNotification {
             text-overflow: ellipsis;
         }
         .ping-notification-close {
+            background-color: var(--background-secondary);
             cursor: pointer;
             font-size: 18px;
             padding: 0 4px;
@@ -451,7 +452,7 @@ module.exports = class PingNotification {
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
             white-space: nowrap;
             z-index: 100;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: var(--background-modifier-hover);
             padding: 4px 8px;
             border-radius: 4px;
         }
@@ -465,7 +466,7 @@ module.exports = class PingNotification {
 
         .ping-notification .spoilerContent_aa9639,
         .ping-notification .spoilerMarkdownContent_aa9639 {
-            background-color: rgba(255, 255, 255, 0.15);
+            background-color: var(--background-nested-floating);
             border-radius: 3px;
             transition: background-color 0.2s ease;
         }
@@ -505,16 +506,21 @@ module.exports = class PingNotification {
 
         .ping-notification code {
             background-color: var(--background-secondary);
-            border-radius: 3px;
+            border: 1px solid var(--background-modifier-accent);
+            border-radius: 4px;
             padding: 0.2em 0.4em;
             margin: 0;
-            font-size: 85%;
+            line-height: 1.125rem;
+            font-size: .875rem;
+            text-indent: 0;
+            white-space: pre-wrap;
             font-family: var(--font-code);
             color: var(--text-normal);
         }
 
         .ping-notification pre {
             background-color: var(--background-secondary);
+            border: 1px solid var(--background-modifier-accent);
             border-radius: 4px;
             padding: 0.5em;
             margin: 0.5em 0;
@@ -1042,7 +1048,6 @@ module.exports = class PingNotification {
                 maxHeight: `${settings.maxHeight}px`,
                 display: 'flex',
                 flexDirection: 'column',
-                backgroundColor: 'rgba(30, 31, 34, 0.95)',
                 backdropFilter: 'blur(10px)',
                 borderRadius: '12px',
                 boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(255, 255, 255, 0.1)',
@@ -1103,14 +1108,17 @@ module.exports = class PingNotification {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderRadius: '50%',
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        borderRadius: '100%',
                         color: 'var(--interactive-normal)',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
                         '&:hover': {
-                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                            backgroundColor: 'var(--button-secondary-background-hover)',
                             color: 'var(--interactive-hover)'
+                        },
+                        '&:active': {
+                            backgroundColor: 'var(--button-secondary-background-active)',
+                            color: 'var(--interactive-active)'
                         }
                     }
                 }, 
@@ -1360,7 +1368,7 @@ module.exports = class PingNotification {
                     color: progressColorString,
                     transition: 'color 0.5s ease',
                     fontWeight: 'bold',
-                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                    backgroundColor: 'var(--background-floating)',
                     padding: '2px 6px',
                     borderRadius: '10px',
                     display: settings.showTimer ? 'block' : 'none'
