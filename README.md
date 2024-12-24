@@ -25,11 +25,30 @@ Navigate to `BetterDiscord > Plugins > PingNotification settings` to:
 - Change display location of the notification window
 - Enable 'Privacy Mode' which hides all message content and attachments behind a `hover-to-reveal` system
 - Configure the ability to apply 'Privacy Mode' to NSFW channels
+- Customise size of the popup
 And much more!
 
 ## 📦 Latest Updates
 
 <details open>
+<summary><strong>v7.2.0</strong></summary>
+
+ Added
+- New setting to disable media interaction in notifications.
+- New `Advanced Settings` category to customize notification dimensions.
+- New setting to enable/disable the timer of the notification(numbers, not the progress bar).
+- New setting to choose between username or display name in notifications, where nickname is not available or setting `Show Nicknames` is disabled.
+
+Fixed
+- Fixed fullscreening videos in notifications.
+
+Improvements
+- Moved all custom changelog and settings to BdApi.
+- Made settings collapsible.
+- If media exists in a reply, it will now display the same img icon as discord instead of `[MEDIA]` in the notification.
+</details>
+
+<details close>
 <summary><strong>v7.0.0 - 7.0.2</strong></summary>
  
 - Fully rewritten (again) to use MessageAccessories, this allows for near-native rendering of various message components, like embeds, attachments, and more.
