@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 7.2.0
+ * @version 7.2.1
  * @description Show in-app notifications for anything you would hear a ping for.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -35,31 +35,14 @@ const ChannelAckModule = (() => {
 const config = {
     changelog: [
         {
-            title: "Added",
-            type: "added",
-            items: [
-                "New setting to disable media interaction in notifications.",
-                "New `Advanced Settings` category to customize notification dimensions.",
-                "New setting to enable/disable the timer of the notification(numbers, not the progress bar).",
-                "New setting to choose between username or display name in notifications, where nickname is not available or setting `Show Nicknames` is disabled."
-            ]
-        },
-        {
-            title: "Fixed",
-            type: "fixed",
-            items: [
-                "Fixed fullscreening videos in notifications."
-            ]
-        },
-        {
-            title: "Improvements",
+            title: "Improved",
             type: "improved",
             items: [
-                "Moved all custom changelog and settings to BdApi.",
-                "Made settings collapsible.",
-                "If media exists in a reply, it will now display the same img icon as discord instead of `[MEDIA]` in the notification."
+                "Close button now uses discord's close button, so themes can style it.",
+                "Made most PingNotification styling follow default discord styling, so that themes can style it too.",
+                "Big thank you to @Cypoe https://github.com/Cypoe for these improvements."
             ]
-        },
+        }
     ],
     settings: [
         {
