@@ -419,8 +419,8 @@ module.exports = class PingNotification {
         .ping-notification-close {
             background-color: var(--background-secondary);
             cursor: pointer;
-            font-size: 18px;
-            padding: 0 4px;
+            height: 24px;
+            width: 24px;
         }
         .ping-notification-body {
             font-size: 15px;
@@ -1094,7 +1094,7 @@ module.exports = class PingNotification {
                     }, notificationTitle)
                 ),
                 React.createElement('div', { 
-                    className: "ping-notification-close", 
+                    className: "ping-notification-close closeButton_df5532", 
                     onClick: (e) => { 
                         e.stopPropagation(); 
                         onClose(true);
@@ -1103,34 +1103,21 @@ module.exports = class PingNotification {
                         position: 'absolute',
                         top: '12px',
                         right: '12px',
-                        width: '20px',
-                        height: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '100%',
-                        color: 'var(--interactive-normal)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                            backgroundColor: 'var(--button-secondary-background-hover)',
-                            color: 'var(--interactive-hover)'
-                        },
-                        '&:active': {
-                            backgroundColor: 'var(--button-secondary-background-active)',
-                            color: 'var(--interactive-active)'
-                        }
+                        width: '24px',
+                        height: '24px',
                     }
                 }, 
                     React.createElement('svg', {
-                        width: '14',
-                        height: '14',
+                        width: '18',
+                        height: '18',
                         viewBox: '0 0 24 24',
-                        fill: 'currentColor'
+                        fill: 'currentColor',
+                        role: 'img',
                     },
                         React.createElement('path', {
-                            d: 'M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z'
-                        })
+                            fill: 'currentColor',
+                            d: 'M17.3 18.7a1 1 0 0 0 1.4-1.4L13.42 12l5.3-5.3a1 1 0 0 0-1.42-1.4L12 10.58l-5.3-5.3a1 1 0 0 0-1.4 1.42L10.58 12l-5.3 5.3a1 1 0 1 0 1.42 1.4L12 13.42l5.3 5.3Z'
+                        }),
                     )
                 ),
                 (settings.privacyMode || (settings.applyNSFWBlur && (channel.nsfw || channel.nsfw_))) && 
