@@ -1,7 +1,7 @@
 /**
  * @name PingNotification
  * @author DaddyBoard
- * @version 7.2.1
+ * @version 7.2.2
  * @description Show in-app notifications for anything you would hear a ping for.
  * @website https://github.com/DaddyBoard/PingNotification
  * @source https://raw.githubusercontent.com/DaddyBoard/PingNotification/main/PingNotification.plugin.js
@@ -35,12 +35,12 @@ const ChannelAckModule = (() => {
 const config = {
     changelog: [
         {
-            title: "Improved",
+            title: "Improvements",
             type: "improved",
             items: [
-                "Close button now uses discord's close button, so themes can style it.",
-                "Made most PingNotification styling follow default discord styling, so that themes can style it too.",
-                "Big thank you to @Cypoe https://github.com/Cypoe for these improvements."
+                "Reverted back to 7.2.0 code (before theming and close button changes)",
+                "7.2.1 introduced multiple janky formatting issues with code blocks, names clashing with close button, etc.",
+                "I will look into a better way of re-structuring this PR/Request and add back in a future update. If it works for you, feel free to downgrade to 7.2.1 and change the meta version to 7.2.2 to stop updates"
             ]
         }
     ],
@@ -360,7 +360,7 @@ module.exports = class PingNotification {
     css = `
 
         .ping-notification {
-            background-color: var(--background-tertiary);
+            background-color: rgba(30, 31, 34, 0.95);
             color: var(--text-normal);
             border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(255, 255, 255, 0.1);
@@ -400,10 +400,9 @@ module.exports = class PingNotification {
             text-overflow: ellipsis;
         }
         .ping-notification-close {
-            background-color: var(--background-secondary);
             cursor: pointer;
-            height: 24px;
-            width: 24px;
+            font-size: 18px;
+            padding: 0 4px;
         }
         .ping-notification-body {
             font-size: 15px;
@@ -435,7 +434,7 @@ module.exports = class PingNotification {
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
             white-space: nowrap;
             z-index: 100;
-            background-color: var(--background-modifier-hover);
+            background-color: rgba(0, 0, 0, 0.7);
             padding: 4px 8px;
             border-radius: 4px;
         }
@@ -449,7 +448,7 @@ module.exports = class PingNotification {
 
         .ping-notification .spoilerContent_aa9639,
         .ping-notification .spoilerMarkdownContent_aa9639 {
-            background-color: var(--background-nested-floating);
+            background-color: rgba(255, 255, 255, 0.15);
             border-radius: 3px;
             transition: background-color 0.2s ease;
         }
@@ -489,21 +488,16 @@ module.exports = class PingNotification {
 
         .ping-notification code {
             background-color: var(--background-secondary);
-            border: 1px solid var(--background-modifier-accent);
-            border-radius: 4px;
+            border-radius: 3px;
             padding: 0.2em 0.4em;
             margin: 0;
-            line-height: 1.125rem;
-            font-size: .875rem;
-            text-indent: 0;
-            white-space: pre-wrap;
+            font-size: 85%;
             font-family: var(--font-code);
             color: var(--text-normal);
         }
 
         .ping-notification pre {
             background-color: var(--background-secondary);
-            border: 1px solid var(--background-modifier-accent);
             border-radius: 4px;
             padding: 0.5em;
             margin: 0.5em 0;
@@ -893,7 +887,10 @@ module.exports = class PingNotification {
                 return member.nick;
             }
             if (settings.usernameOrDisplayName) {
-                return message.author.globalName || message.author.username;
+                if (!message.author.globalName) {
+                    return message.author.username;
+                }
+                return message.author.globalName;
             }
             return message.author.username;
         }, [settings.showNicknames, member?.nick, message.author.username, settings.usernameOrDisplayName]);
@@ -1028,6 +1025,7 @@ module.exports = class PingNotification {
                 maxHeight: `${settings.maxHeight}px`,
                 display: 'flex',
                 flexDirection: 'column',
+                backgroundColor: 'rgba(30, 31, 34, 0.95)',
                 backdropFilter: 'blur(10px)',
                 borderRadius: '12px',
                 boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 1px rgba(255, 255, 255, 0.1)',
@@ -1074,7 +1072,7 @@ module.exports = class PingNotification {
                     }, notificationTitle)
                 ),
                 React.createElement('div', { 
-                    className: "ping-notification-close closeButton_df5532", 
+                    className: "ping-notification-close", 
                     onClick: (e) => { 
                         e.stopPropagation(); 
                         onClose(true);
@@ -1083,21 +1081,31 @@ module.exports = class PingNotification {
                         position: 'absolute',
                         top: '12px',
                         right: '12px',
-                        width: '24px',
-                        height: '24px',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        color: 'var(--interactive-normal)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                            color: 'var(--interactive-hover)'
+                        }
                     }
                 }, 
                     React.createElement('svg', {
-                        width: '18',
-                        height: '18',
+                        width: '14',
+                        height: '14',
                         viewBox: '0 0 24 24',
-                        fill: 'currentColor',
-                        role: 'img',
+                        fill: 'currentColor'
                     },
                         React.createElement('path', {
-                            fill: 'currentColor',
-                            d: 'M17.3 18.7a1 1 0 0 0 1.4-1.4L13.42 12l5.3-5.3a1 1 0 0 0-1.42-1.4L12 10.58l-5.3-5.3a1 1 0 0 0-1.4 1.42L10.58 12l-5.3 5.3a1 1 0 1 0 1.42 1.4L12 13.42l5.3 5.3Z'
-                        }),
+                            d: 'M18.4 4L12 10.4L5.6 4L4 5.6L10.4 12L4 18.4L5.6 20L12 13.6L18.4 20L20 18.4L13.6 12L20 5.6L18.4 4Z'
+                        })
                     )
                 ),
                 (settings.privacyMode || (settings.applyNSFWBlur && (channel.nsfw || channel.nsfw_))) && 
@@ -1335,7 +1343,7 @@ module.exports = class PingNotification {
                     color: progressColorString,
                     transition: 'color 0.5s ease',
                     fontWeight: 'bold',
-                    backgroundColor: 'var(--background-floating)',
+                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
                     padding: '2px 6px',
                     borderRadius: '10px',
                     display: settings.showTimer ? 'block' : 'none'
